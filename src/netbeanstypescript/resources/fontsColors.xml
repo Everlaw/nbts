@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontscolors PUBLIC "-//NetBeans//DTD Editor Fonts and Colors settings 1.1//EN" "http://www.netbeans.org/dtds/EditorFontsColors-1_1.dtd">
+
+<fontscolors>
+    <fontcolor name="keyword" default="keyword"/>
+    <fontcolor name="constant" default="number"/>
+    <fontcolor name="operator" default="operator"/>
+    <fontcolor name="string" default="string"/>
+    <fontcolor name="error" default="error"/>
+    <fontcolor name="separator" default="separator"/>
+    <fontcolor name="identifier" default="identifier"/>
+    <fontcolor name="whitespace" default="whitespace"/>
+
+    <fontcolor name="mod-regexp" foreColor="9933CC" default="regexp" />
+
+    <fontcolor name="mod-method" foreColor="000000">
+        <font style="bold" />
+    </fontcolor>
+    <fontcolor name="mod-class" foreColor="000000">
+        <font style="bold" />
+    </fontcolor>
+    <fontcolor name="mod-field" default="field"/>
+    <fontcolor name="mod-global" foreColor="9F0D79"/>
+    <fontcolor name="mark-occurrences" bgColor="ECEBA3"/>
+
+    <fontcolor name="mod-unused" waveUnderlined="999999"/>
+    
+    <!-- COMMENTS fonts&colors -->
+    <fontcolor name="COMMENT" default="comment"/>
+    <!--<fontcolor name="COMMENT_SHARED_TAG" default="comment"/>-->
+    <!--<fontcolor name="COMMENT_NOCODE" default="comment" foreColor="BB9955"/>-->
+    <fontcolor name="COMMENT_KEYWORD" default="comment">
+        <font style="bold"/>
+    </fontcolor>
+    <fontcolor name="COMMENT_HTML" default="comment" foreColor="9999FF">
+        <font style="bold"/>
+    </fontcolor>
+
+    <fontcolor name="mod-deprecated" strikeThrough="black"/>
+    <fontcolor name="mod-undefined" foreColor="red"/>
+</fontscolors>
