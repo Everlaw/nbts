@@ -84,7 +84,9 @@ public class TSLexer implements Lexer<JsTokenId> {
                 input.backup(1);
                 return factory.createToken(JsTokenId.ERROR);
             }
-            if (! escape) {
+            if (escape) {
+                escape = false;
+            } else {
                 if (ch == quote) {
                     lastTokType = TERM;
                     return factory.createToken(JsTokenId.STRING);
@@ -104,8 +106,8 @@ public class TSLexer implements Lexer<JsTokenId> {
                         return factory.createToken(JsTokenId.ERROR);
                     }
                 }
+                escape = ch == '\\';
             }
-            escape = ch == '\\';
         }
     }
 
@@ -231,6 +233,7 @@ public class TSLexer implements Lexer<JsTokenId> {
                     return factory.createToken(JsTokenId.BLOCK_COMMENT);
                 }
                 if (lastTokType == OPERATOR) {
+                    input.backup(1);
                     return reScanSlashToken();
                 }
                 lastTokType = OPERATOR;
