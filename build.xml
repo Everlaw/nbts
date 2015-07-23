@@ -5,4 +5,27 @@
 <project basedir="." default="netbeans" name="netbeanstypescript">
     <description>Builds, tests, and runs the project module1.</description>
     <import file="nbproject/build-impl.xml"/>
+
+    <property environment="env"/>
+    <property name="typescript" value="${env.HOME}/TypeScript-1.4"/>
+
+    <target name="compile" depends="projectized-common.compile">
+        <copy file="${typescript}/bin/lib.d.ts" todir="${build.classes.dir}/netbeanstypescript/resources/"/>
+    </target>
+
+    <target name="compile-ts-services-check">
+        <uptodate property="compile-ts-services.uptodate" targetfile="${cluster}/nbts-services.js">
+            <srcfiles dir="ts"/>
+        </uptodate>
+    </target>
+    <target name="netbeans-extra" depends="compile-ts-services-check" unless="compile-ts-services.uptodate">
+        <echo>Building nbts-services.js</echo>
+        <exec executable="nodejs" failonerror="true">
+            <arg value="${typescript}/bin/tsc.js"/>
+            <arg value="ts/main.ts"/>
+            <arg value="--removeComments"/>
+            <arg value="--out"/>
+            <arg value="${cluster}/nbts-services.js"/>
+        </exec>
+    </target>
 </project>

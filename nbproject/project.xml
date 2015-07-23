@@ -147,6 +147,14 @@
                     </run-dependency>
                 </dependency>
                 <dependency>
+                    <code-name-base>org.openide.modules</code-name-base>
+                    <build-prerequisite/>
+                    <compile-dependency/>
+                    <run-dependency>
+                        <specification-version>7.43.1</specification-version>
+                    </run-dependency>
+                </dependency>
+                <dependency>
                     <code-name-base>org.openide.text</code-name-base>
                     <build-prerequisite/>
                     <compile-dependency/>
@@ -180,6 +188,10 @@
                 </dependency>
             </module-dependencies>
             <public-packages/>
+            <extra-compilation-unit>
+                <package-root>ts</package-root>
+                <classpath/>
+            </extra-compilation-unit>
         </data>
     </configuration>
 </project>

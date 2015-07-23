@@ -1,8 +1,8 @@
 package netbeanstypescript;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
@@ -34,8 +34,8 @@ import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.modules.refactoring.spi.SimpleRefactoringElementImplementation;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
+import org.openide.modules.InstalledFileLocator;
 import org.openide.text.CloneableEditorSupport;
 import org.openide.text.PositionBounds;
 import org.openide.text.PositionRef;
@@ -60,16 +60,13 @@ public class TSService {
 
         NodeJSProcess() throws IOException {
             System.out.println("TSService: starting nodejs");
-            try (InputStream s = TSService.class.getResourceAsStream("/netbeanstypescript/resources/services.js")) {
+            File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
+            try {
                 Process process = new ProcessBuilder()
-                    .command("nodejs", "--harmony_collections", "-e", String.format(
-                        "eval(function(i,l,b){" +
-                            "b=new Buffer(l);while(i<l)i+=require('fs').readSync(0,b,i,l-i);return b.toString()" +
-                        "}(0,%d))", s.available()))
+                    .command("nodejs", "--harmony_collections", file.toString())
                     .redirectError(ProcessBuilder.Redirect.INHERIT)
                     .start();
                 stdin = process.getOutputStream();
-                FileUtil.copy(s, stdin);
                 stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
             } catch (Exception e) {
                 error = "Error creating Node.js process. Make sure the \"nodejs\" executable is installed and on your PATH."
