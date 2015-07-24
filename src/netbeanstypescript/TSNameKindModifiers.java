@@ -52,8 +52,8 @@ public class TSNameKindModifiers {
             case "primitive type": break;
             case "label": break;
             case "alias": break;
-            case "const": break;
-            case "let": break;
+            case "const": kind = ElementKind.CONSTANT; break;
+            case "let": kind = ElementKind.VARIABLE; break;
             default: System.out.println("Unknown symbol kind [" + obj.get("kind") + "]");
         }
 

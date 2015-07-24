@@ -7,7 +7,7 @@
     <import file="nbproject/build-impl.xml"/>
 
     <property environment="env"/>
-    <property name="typescript" value="${env.HOME}/TypeScript-1.4"/>
+    <property name="typescript" value="${env.HOME}/TypeScript-1.5.3"/>
 
     <target name="compile" depends="projectized-common.compile">
         <copy file="${typescript}/bin/lib.d.ts" todir="${build.classes.dir}/netbeanstypescript/resources/"/>

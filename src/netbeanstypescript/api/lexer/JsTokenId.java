@@ -190,11 +190,16 @@ public enum JsTokenId implements TokenId {
 
     // non-highlighted keywords: constructor, get, require, set
     TYPESCRIPT_ANY("any", "keyword"), // NOI18N
+    TYPESCRIPT_AS("as", "keyword"), // NOI18N
     TYPESCRIPT_BOOLEAN("boolean", "keyword"), // NOI18N
     TYPESCRIPT_DECLARE("declare", "keyword"), // NOI18N
+    TYPESCRIPT_FROM("from", "keyword"), // NOI18N
     TYPESCRIPT_MODULE("module", "keyword"), // NOI18N
+    TYPESCRIPT_NAMESPACE("namespace", "keyword"), // NOI18N
     TYPESCRIPT_NUMBER("number", "keyword"), // NOI18N
+    TYPESCRIPT_OF("of", "keyword"), // NOI18N
     TYPESCRIPT_STRING("string", "keyword"), // NOI18N
+    TYPESCRIPT_SYMBOL("symbol", "keyword"), // NOI18N
     TYPESCRIPT_TYPE("type", "keyword"), // NOI18N
 
     KEYWORD_TRUE("true", "keyword"), // NOI18N

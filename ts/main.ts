@@ -5,46 +5,40 @@ import SEK = ts.ScriptElementKind;
 // Node.js stuff
 declare var require: any;
 declare module process { var stdin: any, stdout: any, stderr: any; }
+declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
 class HostImpl implements ts.LanguageServiceHost {
-    files: {[name: string]: {version: string; isOpen: boolean; snapshot: ts.IScriptSnapshot}} = {};
+    files: {[name: string]: {version: string; snapshot: ts.IScriptSnapshot}} = {};
     log(s: string) {
         process.stderr.write(s + '\n');
     }
     getCompilationSettings(): ts.CompilerOptions {
         return {
             noImplicitAny: true,
-            noLib: true
+            noLib: true,
+            // TODO: Get these from tsproject.json?
+            module: ts.ModuleKind.AMD,
+            target: ts.ScriptTarget.ES5
         };
     }
     getScriptFileNames() {
         return Object.keys(this.files);
     }
     getScriptVersion(fileName: string) {
-        return this.files[fileName].version;
-    }
-    getScriptIsOpen(fileName: string) {
-        return this.files[fileName].isOpen;
+        return this.files[fileName] && this.files[fileName].version;
     }
     getScriptSnapshot(fileName: string) {
-        return this.files[fileName].snapshot;
-    }
-    getLocalizedDiagnosticMessages(): any {
-        return null;
-    }
-    getCancellationToken(): ts.CancellationToken {
-        return null;
+        return this.files[fileName] && this.files[fileName].snapshot;
     }
     getCurrentDirectory() {
         return "curdir"; //TODO
     }
-    getDefaultLibFilename(options: ts.CompilerOptions): string {
+    getDefaultLibFileName(options: ts.CompilerOptions): string {
         return null; //TODO
     }
 }
 
 class SnapshotImpl implements ts.IScriptSnapshot {
-    private _lineStartPositions: number[];
     constructor(private text: string) {}
     getText(start: number, end: number) {
         return this.text.substring(start, end);
@@ -52,13 +46,7 @@ class SnapshotImpl implements ts.IScriptSnapshot {
     getLength() {
         return this.text.length;
     }
-    getLineStartPositions() {
-        if (! this._lineStartPositions) {
-            this._lineStartPositions = ts.computeLineStarts(this.text);
-        }
-        return this._lineStartPositions;
-    }
-    getChangeRange(oldSnapshot: SnapshotImpl) {
+    getChangeRange(oldSnapshot: SnapshotImpl): ts.TextChangeRange {
         var newText = this.text, oldText = oldSnapshot.text;
         var newEnd = newText.length, oldEnd = oldText.length;
         while (newEnd > 0 && oldEnd > 0 && newText.charCodeAt(newEnd) === oldText.charCodeAt(oldEnd)) {
@@ -69,7 +57,7 @@ class SnapshotImpl implements ts.IScriptSnapshot {
         while (start < oldEnd && start < newEnd && newText.charCodeAt(start) === oldText.charCodeAt(start)) {
             start++;
         }
-        return new ts.TextChangeRange(new ts.TextSpan(start, oldEnd - start), newEnd - start);
+        return { span: { start: start, length: oldEnd - start }, newLength: newEnd - start };
     }
 }
 
@@ -80,7 +68,6 @@ class Program {
     updateFile(fileName: string, newText: string, modified: boolean) {
         this.host.files[fileName] = {
             version: String(this.nextVersionId++),
-            isOpen: modified,
             snapshot: new SnapshotImpl(newText)
         };
     }
@@ -93,12 +80,11 @@ class Program {
         if (! errs.length) {
             errs = errs.concat(this.service.getSemanticDiagnostics(fileName));
         }
-        var lineStarts = this.host.getScriptSnapshot(fileName).getLineStartPositions();
         return errs.map(diag => ({
-            line: ts.getLineAndCharacterOfPosition(lineStarts, diag.start).line,
+            line: ts.getLineAndCharacterOfPosition(diag.file, diag.start).line,
             start: diag.start,
             length: diag.length,
-            messageText: diag.messageText,
+            messageText: ts.flattenDiagnosticMessageText(diag.messageText, "\n"),
             category: diag.category,
             code: diag.code
         }));
@@ -130,11 +116,11 @@ class Program {
     getQuickInfoAtPosition(fileName: string, position: number) {
         var quickInfo = this.service.getQuickInfoAtPosition(fileName, position);
         return quickInfo && {
-            name: this.host.getScriptSnapshot(fileName).getText(quickInfo.textSpan.start(), quickInfo.textSpan.end()),
+            name: this.host.getScriptSnapshot(fileName).getText(quickInfo.textSpan.start, quickInfo.textSpan.start + quickInfo.textSpan.length),
             kind: quickInfo.kind,
             kindModifiers: quickInfo.kindModifiers,
-            start: quickInfo.textSpan.start(),
-            end: quickInfo.textSpan.end(),
+            start: quickInfo.textSpan.start,
+            end: quickInfo.textSpan.start + quickInfo.textSpan.length,
             displayParts: quickInfo.displayParts,
             documentation: quickInfo.documentation
         };
@@ -142,11 +128,11 @@ class Program {
     getDefsAtPosition(fileName: string, position: number) {
         var defs = this.service.getDefinitionAtPosition(fileName, position);
         return defs && defs.map(di => {
-            var lineStarts = this.host.getScriptSnapshot(di.fileName).getLineStartPositions();
+            var sourceFile = this.service.getSourceFile(di.fileName);
             return {
                 fileName: di.fileName,
-                start: di.textSpan.start(),
-                line: ts.getLineAndCharacterOfPosition(lineStarts, di.textSpan.start()).line,
+                start: di.textSpan.start,
+                line: sourceFile.getLineAndCharacterOfPosition(di.textSpan.start).line,
                 kind: di.kind,
                 name: di.name,
                 containerKind: di.containerKind,
@@ -157,13 +143,13 @@ class Program {
     getOccurrencesAtPosition(fileName: string, position: number) {
         var occurrences = this.service.getOccurrencesAtPosition(fileName, position);
         return occurrences && occurrences.map(occ => ({
-            start: occ.textSpan.start(),
-            end: occ.textSpan.end()
+            start: occ.textSpan.start,
+            end: occ.textSpan.start + occ.textSpan.length
         }));
     }
     getNetbeansSemanticHighlights(fileName: string) {
         var sourceFile = this.service.getRealSourceFile(fileName);
-        var typeInfoResolver = this.service.getTypeInfoResolver();
+        var typeInfoResolver = this.service.getProgram().getTypeChecker();
 
         var results: any[] = [];
         var resultByPos: {[pos: number]: any} = {};
@@ -246,7 +232,7 @@ class Program {
                 return;
             }
             switch (node.kind) {
-                case SK.Method:
+                case SK.MethodDeclaration:
                 case SK.FunctionDeclaration:
                 case SK.ClassDeclaration:
                 case SK.InterfaceDeclaration:
@@ -295,7 +281,7 @@ class Program {
     }
     getStructureItems(fileName: string) {
         var sourceFile = this.service.getRealSourceFile(fileName);
-        var typeInfoResolver = this.service.getTypeInfoResolver();
+        var typeInfoResolver = this.service.getProgram().getTypeChecker();
 
         function buildResults(topNode: ts.Node, inFunction: boolean) {
             var results: any[] = [];
@@ -338,10 +324,10 @@ class Program {
             }
             function visit(node: ts.Node) {
                 switch (node.kind) {
-                    case SK.Property:
+                    case SK.PropertyDeclaration:
                         add(<ts.PropertyDeclaration>node, SEK.memberVariableElement, node.symbol);
                         break;
-                    case SK.Method:
+                    case SK.MethodDeclaration:
                         addFunc(<ts.MethodDeclaration>node, SEK.memberFunctionElement, node.symbol);
                         break;
                     case SK.Constructor:
@@ -355,7 +341,7 @@ class Program {
                         break;
                     case SK.VariableStatement:
                         if (! inFunction) {
-                            (<ts.VariableStatement>node).declarations.forEach(function(v) {
+                            (<ts.VariableStatement>node).declarationList.declarations.forEach(function(v) {
                                 add(v, SEK.variableElement, v.symbol);
                             });
                         }
@@ -389,23 +375,23 @@ class Program {
     }
     getFolds(fileName: string) {
         return this.service.getOutliningSpans(fileName).map(os => ({
-            start: os.textSpan.start(),
-            end: os.textSpan.end()
+            start: os.textSpan.start,
+            end: os.textSpan.start + os.textSpan.length
         }));
     }
     getReferencesAtPosition(fileName: string, position: number) {
         var refs = this.service.getReferencesAtPosition(fileName, position);
         return refs && refs.map(ref => {
-            var snapshot = this.host.getScriptSnapshot(ref.fileName);
-            var lineStarts = snapshot.getLineStartPositions();
-            var line = ts.getLineAndCharacterOfPosition(lineStarts, ref.textSpan.start()).line;
+            var file = this.service.getSourceFile(ref.fileName);
+            var lineStarts = file.getLineStarts();
+            var line = ts.computeLineAndCharacterOfPosition(lineStarts, ref.textSpan.start).line;
             return {
                 fileName: ref.fileName,
                 isWriteAccess: ref.isWriteAccess,
-                start: ref.textSpan.start(),
-                end: ref.textSpan.end(),
-                lineStart: lineStarts[line - 1],
-                lineText: snapshot.getText(lineStarts[line - 1], lineStarts[line])
+                start: ref.textSpan.start,
+                end: ref.textSpan.start + ref.textSpan.length,
+                lineStart: lineStarts[line],
+                lineText: file.text.substring(lineStarts[line], lineStarts[line + 1])
             };
         });
     }
