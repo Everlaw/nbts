@@ -253,8 +253,8 @@ public class TSService {
             ErrorsCache.setErrors(context.getRootURI(), i, errors, new Convertor<JSONObject>() {
                 @Override
                 public ErrorsCache.ErrorKind getKind(JSONObject err) {
-                    int code = ((Number) err.get("code")).intValue();
-                    if (code >= 7000 && code <= 7999) {
+                    int category = ((Number) err.get("category")).intValue();
+                    if (category == 0) {
                         return ErrorsCache.ErrorKind.WARNING;
                     } else {
                         return ErrorsCache.ErrorKind.ERROR;
@@ -365,12 +365,11 @@ public class TSService {
             int start = ((Number) err.get("start")).intValue();
             int length = ((Number) err.get("length")).intValue();
             String messageText = (String) err.get("messageText");
-            //int category = ((Number) err.get("category")).intValue();
-            int code = ((Number) err.get("code")).intValue();
+            int category = ((Number) err.get("category")).intValue();
+            //int code = ((Number) err.get("code")).intValue();
             errors.add(new DefaultError(null, messageText, null,
                     fo, start, start + length, false,
-                    // 7xxx is implicit-any errors
-                    (code >= 7000 && code <= 7999) ? Severity.WARNING : Severity.ERROR));
+                    category == 0 ? Severity.WARNING : Severity.ERROR));
         }
         return errors;
     }

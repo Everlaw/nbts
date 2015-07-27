@@ -29,7 +29,8 @@ public class TSIndexerFactory extends CustomIndexerFactory {
             protected void index(Iterable<? extends Indexable> itrbl, Context cntxt) {
                 for (Indexable indxbl: itrbl) {
                     FileObject fo = cntxt.getRoot().getFileObject(indxbl.getRelativePath());
-                    if (fo != null && "text/typescript".equals(FileUtil.getMIMEType(fo))) {
+                    if (fo != null && ("text/typescript".equals(FileUtil.getMIMEType(fo))
+                            || fo.getNameExt().equals("tsconfig.json"))) {
                         TSService.INSTANCE.addFile(Source.create(fo).createSnapshot(), indxbl, cntxt);
                     }
                 }

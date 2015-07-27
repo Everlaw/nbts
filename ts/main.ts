@@ -1,4 +1,5 @@
 /// <reference path="services/services.ts"/>
+/// <reference path="compiler/commandLineParser.ts"/>
 import SK = ts.SyntaxKind;
 import SEK = ts.ScriptElementKind;
 
@@ -9,17 +10,17 @@ declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
 class HostImpl implements ts.LanguageServiceHost {
     files: {[name: string]: {version: string; snapshot: ts.IScriptSnapshot}} = {};
+    config: ts.CompilerOptions = {};
     log(s: string) {
         process.stderr.write(s + '\n');
     }
-    getCompilationSettings(): ts.CompilerOptions {
-        return {
-            noImplicitAny: true,
-            noLib: true,
-            // TODO: Get these from tsproject.json?
-            module: ts.ModuleKind.AMD,
-            target: ts.ScriptTarget.ES5
-        };
+    getCompilationSettings() {
+        var settings: ts.CompilerOptions = Object.create(this.config);
+        if (this.config.noImplicitAny == null) {
+            // report implicit-any errors anyway, but only as warnings (see getDiagnostics)
+            settings.noImplicitAny = true;
+        }
+        return settings;
     }
     getScriptFileNames() {
         return Object.keys(this.files);
@@ -66,13 +67,22 @@ class Program {
     host = new HostImpl();
     service = ts.createLanguageService(this.host, ts.createDocumentRegistry());
     updateFile(fileName: string, newText: string, modified: boolean) {
-        this.host.files[fileName] = {
-            version: String(this.nextVersionId++),
-            snapshot: new SnapshotImpl(newText)
-        };
+        if (/\.ts$/.test(fileName)) {
+            this.host.files[fileName] = {
+                version: String(this.nextVersionId++),
+                snapshot: new SnapshotImpl(newText)
+            };
+        } else if (/\.json$/.test(fileName)) { // tsconfig.json
+            var pch: ts.ParseConfigHost = { readDirectory: () => [] };
+            this.host.config = ts.parseConfigFile(JSON.parse(newText), pch, null).options;
+        }
     }
     deleteFile(fileName: string) {
-        delete this.host.files[fileName];
+        if (/\.ts$/.test(fileName)) {
+            delete this.host.files[fileName];
+        } else if (/\.json$/.test(fileName)) {
+            this.host.config = {};
+        }
     }
     getDiagnostics(fileName: string) {
         var errs = this.service.getSyntacticDiagnostics(fileName);
@@ -85,7 +95,10 @@ class Program {
             start: diag.start,
             length: diag.length,
             messageText: ts.flattenDiagnosticMessageText(diag.messageText, "\n"),
-            category: diag.category,
+            // 7xxx is implicit-any errors
+            category: (diag.code >= 7000 && diag.code <= 7999 && ! this.host.config.noImplicitAny)
+                ? ts.DiagnosticCategory.Warning
+                : diag.category,
             code: diag.code
         }));
     }
