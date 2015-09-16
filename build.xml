@@ -7,10 +7,10 @@
     <import file="nbproject/build-impl.xml"/>
 
     <property environment="env"/>
-    <property name="typescript" value="${env.HOME}/TypeScript-1.5.3"/>
+    <property name="typescript" value="${env.HOME}/TypeScript-1.6.2"/>
 
     <target name="compile" depends="projectized-common.compile">
-        <copy file="${typescript}/bin/lib.d.ts" todir="${build.classes.dir}/netbeanstypescript/resources/"/>
+        <copy file="${typescript}/lib/lib.d.ts" todir="${build.classes.dir}/netbeanstypescript/resources/"/>
     </target>
 
     <target name="compile-ts-services-check">
@@ -21,7 +21,7 @@
     <target name="netbeans-extra" depends="compile-ts-services-check" unless="compile-ts-services.uptodate">
         <echo>Building nbts-services.js</echo>
         <exec executable="nodejs" failonerror="true">
-            <arg value="${typescript}/bin/tsc.js"/>
+            <arg value="${typescript}/lib/tsc.js"/>
             <arg value="ts/main.ts"/>
             <arg value="--removeComments"/>
             <arg value="--out"/>

@@ -69,6 +69,7 @@ public class TSNameKindModifiers {
                     case "export": break;
                     case "declare": break;
                     case "static": modifiers.add(Modifier.STATIC); break;
+                    case "abstract": modifiers.add(Modifier.ABSTRACT); break;
                     case "deprecated": modifiers.add(Modifier.DEPRECATED); break;
                     default: System.out.println("Unknown modifier [" + modifier + "]");
                 }

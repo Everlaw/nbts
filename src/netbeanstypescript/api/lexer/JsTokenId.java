@@ -186,14 +186,18 @@ public enum JsTokenId implements TokenId {
     RESERVED_PROTECTED("protected", "keyword"), // NOI18N
     RESERVED_PUBLIC("public", "keyword"), // NOI18N
     RESERVED_STATIC("static", "keyword"), // NOI18N
-    RESERVED_YIELD("yield", "reserved"), // NOI18N
+    RESERVED_YIELD("yield", "keyword"), // NOI18N
 
     // non-highlighted keywords: constructor, get, require, set
+    TYPESCRIPT_ABSTRACT("abstract", "keyword"), // NOI18N
     TYPESCRIPT_ANY("any", "keyword"), // NOI18N
     TYPESCRIPT_AS("as", "keyword"), // NOI18N
+    TYPESCRIPT_ASYNC("async", "keyword"), // NOI18N
+    TYPESCRIPT_AWAIT("await", "keyword"), // NOI18N
     TYPESCRIPT_BOOLEAN("boolean", "keyword"), // NOI18N
     TYPESCRIPT_DECLARE("declare", "keyword"), // NOI18N
     TYPESCRIPT_FROM("from", "keyword"), // NOI18N
+    TYPESCRIPT_IS("is", "keyword"), // NOI18N
     TYPESCRIPT_MODULE("module", "keyword"), // NOI18N
     TYPESCRIPT_NAMESPACE("namespace", "keyword"), // NOI18N
     TYPESCRIPT_NUMBER("number", "keyword"), // NOI18N

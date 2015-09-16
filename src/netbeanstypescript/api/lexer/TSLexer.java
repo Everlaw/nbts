@@ -26,6 +26,7 @@ public class TSLexer implements Lexer<JsTokenId> {
 
     // Keywords which can be immediately followed by an expression 
     static final EnumSet<JsTokenId> operatorKeywords = EnumSet.of(
+            JsTokenId.TYPESCRIPT_AWAIT,
             JsTokenId.KEYWORD_CASE,
             JsTokenId.KEYWORD_DELETE,
             JsTokenId.KEYWORD_IN,
@@ -34,7 +35,8 @@ public class TSLexer implements Lexer<JsTokenId> {
             JsTokenId.KEYWORD_RETURN,
             JsTokenId.KEYWORD_THROW,
             JsTokenId.KEYWORD_TYPEOF,
-            JsTokenId.KEYWORD_VOID);
+            JsTokenId.KEYWORD_VOID,
+            JsTokenId.RESERVED_YIELD);
 
     LexerInput input;
     TokenFactory<JsTokenId> factory;
