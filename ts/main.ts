@@ -268,20 +268,6 @@ class Program {
                 case SK.SetAccessor:
                     highlight(node.name.pos - 3, node.name.pos, 'METHOD');
                     break;
-                case SK.ObjectLiteralExpression:
-                    var objType = typeInfoResolver.getContextualType(node);
-                    if (objType && (objType.flags & ts.TypeFlags.ObjectType) &&
-                            ! typeInfoResolver.getIndexTypeOfType(objType, ts.IndexKind.String)) {
-                        (<ts.ObjectLiteralExpression>node).properties.forEach(function(prop) {
-                            var name = <any>prop.name;
-                            if (! typeInfoResolver.getPropertyOfType(objType, name.text) &&
-                                (isNaN(name.text) ||
-                                    ! typeInfoResolver.getIndexTypeOfType(objType, ts.IndexKind.Number))) {
-                                highlight(ts.skipTrivia(sourceFile.text, prop.name.pos), prop.name.end, 'UNUSED');
-                            }
-                        });
-                    }
-                    break;
             }
             ts.forEachChild(node, walk);
         }
