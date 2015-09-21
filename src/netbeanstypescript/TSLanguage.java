@@ -22,7 +22,7 @@ public class TSLanguage extends DefaultLanguageConfig {
     @MIMEResolver.ExtensionRegistration(
             displayName = "TypeScript files",
             mimeType = "text/typescript",
-            extension = {"ts"}
+            extension = {"ts", "tsx"}
     )
     @MultiViewElement.Registration(
             displayName = "Source",

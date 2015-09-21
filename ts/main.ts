@@ -67,7 +67,7 @@ class Program {
     host = new HostImpl();
     service = ts.createLanguageService(this.host, ts.createDocumentRegistry());
     updateFile(fileName: string, newText: string, modified: boolean) {
-        if (/\.ts$/.test(fileName)) {
+        if (/\.tsx?$/.test(fileName)) {
             this.host.files[fileName] = {
                 version: String(this.nextVersionId++),
                 snapshot: new SnapshotImpl(newText)
@@ -78,7 +78,7 @@ class Program {
         }
     }
     deleteFile(fileName: string) {
-        if (/\.ts$/.test(fileName)) {
+        if (/\.tsx?$/.test(fileName)) {
             delete this.host.files[fileName];
         } else if (/\.json$/.test(fileName)) {
             this.host.config = {};

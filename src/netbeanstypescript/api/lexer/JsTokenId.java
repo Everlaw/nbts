@@ -142,6 +142,8 @@ public enum JsTokenId implements TokenId {
     OPERATOR_LEFT_SHIFT_ARITHMETIC_ASSIGNMENT("<<=", "operator"), // NOI18N
     OPERATOR_RIGHT_SHIFT_ARITHMETIC_ASSIGNMENT(">>=", "operator"), // NOI18N
     OPERATOR_RIGHT_SHIFT_ASSIGNMENT(">>>=", "operator"), // NOI18N
+    OPERATOR_AT("@", "operator"), // NOI18N
+    OPERATOR_LESS_THAN_SLASH("</", "operator"), // NOI18N
 
     KEYWORD_BREAK("break", "keyword"), // NOI18N
     KEYWORD_CASE("case", "keyword"), // NOI18N

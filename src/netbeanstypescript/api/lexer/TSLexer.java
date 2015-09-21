@@ -257,6 +257,11 @@ public class TSLexer implements Lexer<JsTokenId> {
             case '<':
                 // TODO
                 lastTokType = OPERATOR;
+                ch = input.read();
+                if (ch == '/') {
+                    return factory.createToken(JsTokenId.OPERATOR_LESS_THAN_SLASH);
+                }
+                input.backup(1);
                 return factory.createToken(JsTokenId.OPERATOR_LOWER);
             case '=':
                 // TODO
@@ -269,6 +274,9 @@ public class TSLexer implements Lexer<JsTokenId> {
             case '?':
                 lastTokType = OPERATOR;
                 return factory.createToken(JsTokenId.OPERATOR_TERNARY);
+            case '@':
+                lastTokType = OPERATOR;
+                return factory.createToken(JsTokenId.OPERATOR_AT);
             case '[':
                 lastTokType = OPERATOR;
                 return factory.createToken(JsTokenId.BRACKET_LEFT_BRACKET);
