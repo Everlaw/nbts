@@ -61,17 +61,21 @@ public class TSService {
         NodeJSProcess() throws IOException {
             System.out.println("TSService: starting nodejs");
             File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
-            try {
-                Process process = new ProcessBuilder()
-                    .command("nodejs", "--harmony_collections", file.toString())
-                    .redirectError(ProcessBuilder.Redirect.INHERIT)
-                    .start();
-                stdin = process.getOutputStream();
-                stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            } catch (Exception e) {
-                error = "Error creating Node.js process. Make sure the \"nodejs\" executable is installed and on your PATH."
-                        + "\n\nClose all TypeScript projects and reopen to retry."
-                        + "\n\n" + e;
+            for (String command: new String[] { "nodejs", "node" }) {
+                try {
+                    Process process = new ProcessBuilder()
+                        .command(command, "--harmony", file.toString())
+                        .start();
+                    stdin = process.getOutputStream();
+                    stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    process.getErrorStream().close();
+                    error = null;
+                    break;
+                } catch (Exception e) {
+                    error = "Error creating Node.js process. Make sure the \"nodejs\" or \"node\" executable is installed and on your PATH."
+                            + "\n\nClose all TypeScript projects and reopen to retry."
+                            + "\n\n" + e;
+                }
             }
             System.out.println("TSService: nodejs loaded");
         }
@@ -86,7 +90,9 @@ public class TSService {
             try {
                 stdin.write(code.getBytes());
                 stdin.flush();
-                s = stdout.readLine();
+                while ((s = stdout.readLine()) != null && s.charAt(0) == 'L') {
+                    System.out.println(JSONValue.parseWithException(s.substring(1)));
+                }
             } catch (Exception e) {
                 error = "Error communicating with Node.js process."
                         + "\n\nClose all TypeScript projects and reopen to retry."

@@ -5,14 +5,14 @@ import SEK = ts.ScriptElementKind;
 
 // Node.js stuff
 declare var require: any;
-declare module process { var stdin: any, stdout: any, stderr: any; }
+declare module process { var stdin: any, stdout: any; }
 declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
 class HostImpl implements ts.LanguageServiceHost {
     files: {[name: string]: {version: string; snapshot: ts.IScriptSnapshot}} = {};
     config: ts.CompilerOptions = {};
     log(s: string) {
-        process.stderr.write(s + '\n');
+        process.stdout.write('L' + JSON.stringify(s) + '\n');
     }
     getCompilationSettings() {
         var settings: ts.CompilerOptions = Object.create(this.config);
