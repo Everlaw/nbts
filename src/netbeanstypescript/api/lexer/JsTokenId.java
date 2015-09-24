@@ -34,6 +34,7 @@
  * Contributor(s):
  *
  * Portions Copyrighted 2011 Sun Microsystems, Inc.
+ * Portions Copyrighted 2015 Everlaw
  */
 package netbeanstypescript.api.lexer;
 

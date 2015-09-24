@@ -1,3 +1,6 @@
+// This file has been modified from the original for netbeanstypescript.
+// Portions Copyrighted 2015 Everlaw
+
 namespace ts {
     export interface Map<T> {
         [index: string]: T;

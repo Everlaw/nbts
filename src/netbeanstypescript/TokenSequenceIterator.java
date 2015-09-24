@@ -38,6 +38,7 @@
  * Contributor(s):
  *
  * Portions Copyrighted 2013 Sun Microsystems, Inc.
+ * Portions Copyrighted 2015 Everlaw
  */
 package netbeanstypescript;
 
