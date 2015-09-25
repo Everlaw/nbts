@@ -47,7 +47,8 @@ import org.netbeans.spi.lexer.LexerRestartInfo;
 import org.netbeans.spi.lexer.TokenFactory;
 
 /**
- *
+ * This lexer is incomplete, but is only used for syntax highlighting, braces matching, and such -
+ * not for parsing.
  * @author jeffrey
  */
 public class TSLexer implements Lexer<JsTokenId> {

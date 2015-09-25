@@ -124,46 +124,37 @@ public class TSCodeCompletion implements CodeCompletionHandler {
 
     @Override
     public ElementHandle resolveLink(String string, ElementHandle eh) {
-        System.out.println("@@@ resolveLink");
         return null;
     }
 
     @Override
     public String getPrefix(ParserResult info, int caretOffset, boolean upToOffset) {
-        System.out.println("@@@ getPrefix(info=" + info + ",caret=" + caretOffset + ",upTo=" + upToOffset + ")");
-        
         CharSequence seq = info.getSnapshot().getText();
         int i = caretOffset;
         while (i > 0 && Character.isJavaIdentifierPart(seq.charAt(i - 1))) {
             i--;
         }
 
-        String ret = seq.subSequence(i, caretOffset).toString();
-        System.out.println("returning " + ret);
-        return ret;
+        return seq.subSequence(i, caretOffset).toString();
     }
 
     @Override
     public QueryType getAutoQuery(JTextComponent component, String typedText) {
-        //System.out.println("@@@ getAutoQuery " + typedText);
         return typedText.endsWith(".") ? QueryType.COMPLETION : QueryType.NONE;
     }
 
     @Override
     public String resolveTemplateVariable(String string, ParserResult pr, int i, String string1, Map map) {
-        System.out.println("@@@ resolveTemplateVariable");
         return null;
     }
 
     @Override
     public Set<String> getApplicableTemplates(Document dcmnt, int i, int i1) {
-        System.out.println("@@@ getApplicableTemplates");
         return null;
     }
 
     @Override
     public ParameterInfo parameters(ParserResult pr, int i, CompletionProposal cp) {
-        System.out.println("@@@ parameters");
         return ParameterInfo.NONE;
     }
     

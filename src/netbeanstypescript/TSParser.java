@@ -39,13 +39,13 @@ package netbeanstypescript;
 
 import java.util.List;
 import javax.swing.event.ChangeListener;
+import org.netbeans.modules.csl.api.Error;
 import org.netbeans.modules.csl.spi.ParserResult;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Task;
 import org.netbeans.modules.parsing.spi.ParseException;
 import org.netbeans.modules.parsing.spi.Parser;
 import org.netbeans.modules.parsing.spi.SourceModificationEvent;
-import org.netbeans.modules.csl.api.Error;
 
 /**
  *
@@ -76,11 +76,9 @@ public class TSParser extends Parser {
 
     @Override
     public void addChangeListener(ChangeListener cl) {
-        //System.out.println("addChangeListener " + cl);
     }
 
     @Override
     public void removeChangeListener(ChangeListener cl) {
-        //System.out.println("removeChangeListener " + cl);
     }
 }

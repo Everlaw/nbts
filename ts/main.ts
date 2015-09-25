@@ -48,7 +48,7 @@ class HostImpl implements ts.LanguageServiceHost {
         return this.files[fileName] && this.files[fileName].snapshot;
     }
     getCurrentDirectory() {
-        return "curdir"; //TODO
+        return "";
     }
     getDefaultLibFileName(options: ts.CompilerOptions): string {
         return null; //TODO
@@ -101,11 +101,8 @@ class Program {
         }
     }
     getDiagnostics(fileName: string) {
-        var errs = this.service.getSyntacticDiagnostics(fileName);
-        // getSemanticDiagnostics sometimes throws an exception on files with syntax errors
-        if (! errs.length) {
-            errs = errs.concat(this.service.getSemanticDiagnostics(fileName));
-        }
+        var errs = this.service.getSyntacticDiagnostics(fileName).concat(
+                this.service.getSemanticDiagnostics(fileName));
         return errs.map(diag => ({
             line: ts.getLineAndCharacterOfPosition(diag.file, diag.start).line,
             start: diag.start,
@@ -125,7 +122,7 @@ class Program {
         }
         return errs;
     }
-    getCompletions(fileName: string, position: number, isMemberCompletion: boolean, prefix: string) {
+    getCompletions(fileName: string, position: number, prefix: string) {
         var service = this.service;
         var info = service.getCompletionsAtPosition(fileName, position);
         prefix = prefix.toLowerCase(); // NetBeans completion is case insensitive

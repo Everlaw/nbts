@@ -94,9 +94,6 @@ public class TSIndexerFactory extends CustomIndexerFactory {
 
     @Override
     public void filesDirty(Iterable<? extends Indexable> itrbl, Context cntxt) {
-        /*for (Indexable i: itrbl) {
-            System.out.println("filesDirty: " + i.toString());
-        }*/
     }
 
     @Override

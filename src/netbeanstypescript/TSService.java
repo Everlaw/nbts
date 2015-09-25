@@ -121,8 +121,8 @@ public class TSService {
             if (error != null) {
                 return null;
             }
-            System.out.print("OUT[" + code.length() + "]: " + (code.length() > 120 ? code.substring(0, 120) + "...\n" : code));
-            long t1 = System.currentTimeMillis();
+            //System.out.print("OUT[" + code.length() + "]: " + (code.length() > 120 ? code.substring(0, 120) + "...\n" : code));
+            //long t1 = System.currentTimeMillis();
             String s;
             try {
                 stdin.write(code.getBytes());
@@ -136,12 +136,10 @@ public class TSService {
                         + "\n\n" + e;
                 return null;
             }
-            System.out.println("IN[" + s.length() + "," + (System.currentTimeMillis() - t1) + "]: "
-                    + (s.length() > 120 ? s.substring(0, 120) + "..." : s));
+            //System.out.println("IN[" + s.length() + "," + (System.currentTimeMillis() - t1) + "]: "
+            //        + (s.length() > 120 ? s.substring(0, 120) + "..." : s));
             if (s.charAt(0) == 'X') {
-                String exception = s.substring(1);
-                System.out.println(exception);
-                throw new ExceptionFromJS((String) JSONValue.parseWithException(exception));
+                throw new ExceptionFromJS((String) JSONValue.parseWithException(s.substring(1)));
             } else if (s.equals("undefined")) {
                 return null; // JSON parser doesn't like undefined
             } else {
@@ -325,7 +323,6 @@ public class TSService {
         while (iter.hasNext()) {
             FileData fd = iter.next();
             if (fd.program == program) {
-                //System.out.println("Removing " + fd.relPath + " from file cache");
                 iter.remove();
             }
         }
@@ -348,18 +345,14 @@ public class TSService {
     synchronized CodeCompletionResult getCompletions(FileObject fileObj, int caretOffset, String prefix) {
         FileData fd = allFiles.get(fileObj);
         if (fd == null) {
-            System.out.println("File not known to TSService");
             return DefaultCompletionResult.NONE;
         }
 
-        JSONObject info = (JSONObject) fd.program.call("getCompletions", fd.relPath, caretOffset, false, prefix);
+        JSONObject info = (JSONObject) fd.program.call("getCompletions", fd.relPath, caretOffset, prefix);
         if (info == null) {
-            System.out.println("No completions.");
             return CodeCompletionResult.NONE;
         }
 
-        boolean isMemberCompletion = (Boolean) info.get("isMemberCompletion");
-        System.out.println("isMemberCompletion: " + isMemberCompletion);
         List<CompletionProposal> lst = new ArrayList<>();
         for (Object ent: (JSONArray) info.get("entries")) {
             lst.add(new TSCodeCompletion.TSCompletionProposal(
