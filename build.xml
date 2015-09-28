@@ -11,6 +11,7 @@
 
     <target name="compile" depends="projectized-common.compile">
         <copy file="${typescript}/lib/lib.d.ts" todir="${build.classes.dir}/netbeanstypescript/resources/"/>
+        <copy file="${typescript}/lib/lib.es6.d.ts" todir="${build.classes.dir}/netbeanstypescript/resources/"/>
     </target>
 
     <target name="compile-ts-services-check">

@@ -90,12 +90,33 @@ public class TSService {
         ExceptionFromJS(String msg) { super(msg); }
     }
 
+    static void stringToJS(StringBuilder sb, CharSequence s) {
+        sb.append('"');
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < 0x20 || c > 0x7E) {
+                sb.append("\\u");
+                for (int j = 12; j >= 0; j -= 4) {
+                    sb.append("0123456789ABCDEF".charAt((c >> j) & 0x0F));
+                }
+            } else {
+                if (c == '\\' || c == '"') {
+                    sb.append('\\');
+                }
+                sb.append(c);
+            }
+        }
+        sb.append('"');
+    }
+
     static class NodeJSProcess {
         OutputStream stdin;
         BufferedReader stdout;
         String error;
+        static final String builtinLibPrefix = "(builtin) ";
+        Map<String, FileObject> builtinLibs = new HashMap<>();
 
-        NodeJSProcess() throws IOException {
+        NodeJSProcess() throws Exception {
             System.out.println("TSService: starting nodejs");
             File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
             for (String command: new String[] { "nodejs", "node" }) {
@@ -114,10 +135,24 @@ public class TSService {
                             + "\n\n" + e;
                 }
             }
+
+            StringBuilder initLibs = new StringBuilder();
+            for (String lib: new String[] { "lib.d.ts", "lib.es6.d.ts" }) {
+                initLibs.append("void(builtinLibs[");
+                stringToJS(initLibs, builtinLibPrefix + lib);
+                initLibs.append("]=");
+                URL libURL = TSService.class.getClassLoader().getResource("netbeanstypescript/resources/" + lib);
+                FileObject libObj = URLMapper.findFileObject(libURL);
+                stringToJS(initLibs, Source.create(libObj).createSnapshot().getText());
+                initLibs.append(");");
+                builtinLibs.put(builtinLibPrefix + lib, libObj);
+            }
+            eval(initLibs.append('\n').toString());
+
             System.out.println("TSService: nodejs loaded");
         }
 
-        Object eval(String code) throws ParseException, ExceptionFromJS {
+        final Object eval(String code) throws ParseException, ExceptionFromJS {
             if (error != null) {
                 return null;
             }
@@ -165,9 +200,6 @@ public class TSService {
 
         ProgramData() throws Exception {
             nodejs.eval(progVar + " = new Program()\n");
-            URL libURL = TSService.class.getClassLoader().getResource("netbeanstypescript/resources/lib.d.ts");
-            FileObject libObj = URLMapper.findFileObject(libURL);
-            setFileSnapshot("(builtin) lib.d.ts", null, Source.create(libObj).createSnapshot(), false);
         }
 
         Object call(String method, Object... args) {
@@ -175,23 +207,7 @@ public class TSService {
             for (Object arg: args) {
                 if (sb.charAt(sb.length() - 1) != '(') sb.append(',');
                 if (arg instanceof CharSequence) {
-                    CharSequence s = (CharSequence) arg;
-                    sb.append('"');
-                    for (int i = 0; i < s.length(); i++) {
-                        char c = s.charAt(i);
-                        if (c < 0x20 || c > 0x7E) {
-                            sb.append("\\u");
-                            for (int j = 12; j >= 0; j -= 4) {
-                                sb.append("0123456789ABCDEF".charAt((c >> j) & 0x0F));
-                            }
-                        } else {
-                            if (c == '\\' || c == '"') {
-                                sb.append('\\');
-                            }
-                            sb.append(c);
-                        }
-                    }
-                    sb.append('"');
+                    stringToJS(sb, (CharSequence) arg);
                 } else {
                     sb.append(String.valueOf(arg));
                 }
@@ -212,6 +228,10 @@ public class TSService {
             if (indexable != null) {
                 indexables.put(relPath, indexable);
             }
+        }
+
+        FileObject getFile(String relPath) {
+            return (relPath.startsWith(NodeJSProcess.builtinLibPrefix) ? nodejs.builtinLibs : files).get(relPath);
         }
 
         FileObject removeFile(String relPath) throws Exception {
@@ -441,7 +461,7 @@ public class TSService {
         for (final JSONObject def: (List<JSONObject>) defs) {
             final String destFileName = (String) def.get("fileName");
 
-            FileObject destFileObj = fd.program.files.get(destFileName);
+            FileObject destFileObj = fd.program.getFile(destFileName);
             int destOffset = ((Number) def.get("start")).intValue();
             final DeclarationLocation declLoc = new DeclarationLocation(destFileObj, destOffset, eh);
             if (defs.size() == 1) {
@@ -548,7 +568,7 @@ public class TSService {
             final int lineStart = ((Number) use.get("lineStart")).intValue();
             final String lineText = (String) use.get("lineText");
 
-            final FileObject useFileObj = fd.program.files.get(fileName);
+            final FileObject useFileObj = fd.program.getFile(fileName);
             if (useFileObj == null) {
                 continue;
             }

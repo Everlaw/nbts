@@ -24,7 +24,10 @@ declare var require: any;
 declare module process { var stdin: any, stdout: any; }
 declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
+var builtinLibs: {[name: string]: string} = {};
+
 class HostImpl implements ts.LanguageServiceHost {
+    version = 0;
     files: {[name: string]: {version: string; snapshot: ts.IScriptSnapshot}} = {};
     config: ts.CompilerOptions = {};
     log(s: string) {
@@ -38,20 +41,29 @@ class HostImpl implements ts.LanguageServiceHost {
         }
         return settings;
     }
+    getProjectVersion() {
+        return String(this.version);
+    }
     getScriptFileNames() {
         return Object.keys(this.files);
     }
     getScriptVersion(fileName: string) {
+        if (fileName in builtinLibs) {
+            return "0";
+        }
         return this.files[fileName] && this.files[fileName].version;
     }
-    getScriptSnapshot(fileName: string) {
+    getScriptSnapshot(fileName: string): ts.IScriptSnapshot {
+        if (fileName in builtinLibs) {
+            return new SnapshotImpl(builtinLibs[fileName]);
+        }
         return this.files[fileName] && this.files[fileName].snapshot;
     }
     getCurrentDirectory() {
         return "";
     }
     getDefaultLibFileName(options: ts.CompilerOptions): string {
-        return null; //TODO
+        return "(builtin) " + ts.getDefaultLibFileName(options);
     }
 }
 
@@ -79,13 +91,13 @@ class SnapshotImpl implements ts.IScriptSnapshot {
 }
 
 class Program {
-    nextVersionId = 0;
     host = new HostImpl();
     service = ts.createLanguageService(this.host, ts.createDocumentRegistry());
     updateFile(fileName: string, newText: string, modified: boolean) {
+        this.host.version++;
         if (/\.tsx?$/.test(fileName)) {
             this.host.files[fileName] = {
-                version: String(this.nextVersionId++),
+                version: String(this.host.version),
                 snapshot: new SnapshotImpl(newText)
             };
         } else if (/\.json$/.test(fileName)) { // tsconfig.json
@@ -94,6 +106,7 @@ class Program {
         }
     }
     deleteFile(fileName: string) {
+        this.host.version++;
         if (/\.tsx?$/.test(fileName)) {
             delete this.host.files[fileName];
         } else if (/\.json$/.test(fileName)) {
