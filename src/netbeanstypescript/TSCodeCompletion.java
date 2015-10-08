@@ -113,7 +113,7 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         return TSService.INSTANCE.getCompletions(
                 ccc.getParserResult().getSnapshot().getSource().getFileObject(),
                 ccc.getCaretOffset(),
-                ccc.getPrefix());
+                ccc.getPrefix(), ccc.isPrefixMatch(), ccc.isCaseSensitive());
     }
 
     @Override
@@ -130,12 +130,14 @@ public class TSCodeCompletion implements CodeCompletionHandler {
     @Override
     public String getPrefix(ParserResult info, int caretOffset, boolean upToOffset) {
         CharSequence seq = info.getSnapshot().getText();
-        int i = caretOffset;
+        int i = caretOffset, j = i;
         while (i > 0 && Character.isJavaIdentifierPart(seq.charAt(i - 1))) {
             i--;
         }
-
-        return seq.subSequence(i, caretOffset).toString();
+        while (! upToOffset && j < seq.length() && Character.isJavaIdentifierPart(seq.charAt(j))) {
+            j++;
+        }
+        return seq.subSequence(i, j).toString();
     }
 
     @Override

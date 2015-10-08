@@ -362,13 +362,15 @@ public class TSService {
         }
     }
 
-    synchronized CodeCompletionResult getCompletions(FileObject fileObj, int caretOffset, String prefix) {
+    synchronized CodeCompletionResult getCompletions(FileObject fileObj, int caretOffset,
+            String prefix, boolean isPrefixMatch, boolean caseSensitive) {
         FileData fd = allFiles.get(fileObj);
         if (fd == null) {
             return DefaultCompletionResult.NONE;
         }
 
-        JSONObject info = (JSONObject) fd.program.call("getCompletions", fd.relPath, caretOffset, prefix);
+        JSONObject info = (JSONObject) fd.program.call("getCompletions", fd.relPath, caretOffset,
+                prefix, isPrefixMatch, caseSensitive);
         if (info == null) {
             return CodeCompletionResult.NONE;
         }

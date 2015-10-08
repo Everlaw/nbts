@@ -135,15 +135,18 @@ class Program {
         }
         return errs;
     }
-    getCompletions(fileName: string, position: number, prefix: string) {
+    getCompletions(fileName: string, position: number, prefix: string, isPrefixMatch: boolean, caseSensitive: boolean) {
         var service = this.service;
         var info = service.getCompletionsAtPosition(fileName, position);
-        prefix = prefix.toLowerCase(); // NetBeans completion is case insensitive
+        if (! caseSensitive) prefix = prefix.toLowerCase();
         if (info) {
             return {
                 isMemberCompletion: info.isMemberCompletion,
                 entries: info.entries.filter(function(e) {
-                    return e.name.substr(0, prefix.length).toLowerCase() === prefix;
+                    var name = e.name;
+                    if (isPrefixMatch) name = name.substr(0, prefix.length);
+                    if (! caseSensitive) name = name.toLowerCase();
+                    return name === prefix;
                 })
             };
         }
