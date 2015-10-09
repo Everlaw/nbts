@@ -105,4 +105,9 @@ public class TSLanguage extends DefaultLanguageConfig {
 
     @Override
     public SemanticAnalyzer getSemanticAnalyzer() { return new TSSemanticAnalyzer(); }
+
+    @Override
+    public boolean hasFormatter() { return true; }
+    @Override
+    public Formatter getFormatter() { return new TSFormatter(); }
 }

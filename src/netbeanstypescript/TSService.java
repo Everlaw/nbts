@@ -605,4 +605,15 @@ public class TSService {
         }
         return uses;
     }
+
+    synchronized List<JSONObject> getFormattingEdits(FileObject fileObj, int start, int end,
+            int indent, int tabSize, boolean expandTabs) {
+        FileData fd = allFiles.get(fileObj);
+        if (fd == null) {
+            return Collections.emptyList();
+        }
+        Object res = fd.program.call("getFormattingEdits", fd.relPath, start, end,
+                indent, tabSize, expandTabs);
+        return res != null ? (List<JSONObject>) res : Collections.<JSONObject>emptyList();
+    }
 }

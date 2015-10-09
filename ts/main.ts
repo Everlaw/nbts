@@ -423,6 +423,24 @@ class Program {
             };
         });
     }
+    getFormattingEdits(fileName: string, start: number, end: number,
+            indent: number, tabSize: number, expandTabs: boolean) {
+        return this.service.getFormattingEditsForRange(fileName, start, end, {
+            IndentSize: indent,
+            TabSize: tabSize,
+            NewLineCharacter: '\n',
+            ConvertTabsToSpaces: expandTabs,
+            InsertSpaceAfterCommaDelimiter: true,
+            InsertSpaceAfterSemicolonInForStatements: true,
+            InsertSpaceBeforeAndAfterBinaryOperators: true,
+            InsertSpaceAfterKeywordsInControlFlowStatements: true,
+            InsertSpaceAfterFunctionKeywordForAnonymousFunctions: false,
+            InsertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: false,
+            InsertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: false,
+            PlaceOpenBraceOnNewLineForFunctions: false,
+            PlaceOpenBraceOnNewLineForControlBlocks: false
+        }).map(edit => ({ s: edit.span.start, l: edit.span.length, t: edit.newText }));
+    }
 }
 
 require('readline').createInterface(process.stdin, process.stdout).on('line', (l: string) => {

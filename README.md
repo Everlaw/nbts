@@ -20,7 +20,7 @@ In NetBeans, go to Tools > Plugins, and select the "Downloaded" tab. Click "Add 
 
 * All .ts/.tsx files under one source root are currently assumed to be part of one TypeScript project.
 * By default, "implicit any" errors are enabled, but are shown as warnings rather than errors. You may explicitly specify `"noImplicitAny": false` in a TypeScript project's tsconfig.json to disable "implicit any" errors altogether.
-* Compile-on-save, automatic reformatting, and multi-file rename are not implemented yet.
+* Compile-on-save and multi-file rename are not implemented yet.
 
 ### Versioning
 
