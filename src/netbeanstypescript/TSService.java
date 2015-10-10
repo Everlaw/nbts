@@ -119,7 +119,7 @@ public class TSService {
         NodeJSProcess() throws Exception {
             System.out.println("TSService: starting nodejs");
             File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
-            for (String command: new String[] { "nodejs", "node" }) {
+            for (String command: new String[] { "nodejs", "node", "/usr/local/bin/node" }) {
                 try {
                     Process process = new ProcessBuilder()
                         .command(command, "--harmony", file.toString())
