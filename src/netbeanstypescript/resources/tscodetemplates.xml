@@ -55,7 +55,7 @@ Portions Copyrighted 2012 Sun Microsystems, Inc.
 ]]>
         </code>
     </codetemplate>
-    <codetemplate abbreviation="do">
+    <codetemplate abbreviation="dow">
         <code>
 <![CDATA[do {
     ${cursor}
@@ -88,30 +88,37 @@ ${selection}${cursor}
     </codetemplate>
     <codetemplate abbreviation="fom">
         <code>
-<![CDATA[for (var ${var default="i"} = 0, ${max} = ${limit default="10"}; ${var} < ${max}; ${var}++) {
-    ${selection}${cursor}
+<![CDATA[for (let ${var default="i"}: number = 0, ${max}: number = ${limit default="10"}; ${var} < ${max}; ${var}++) {
+	${selection}${cursor}
 }]]>
         </code>
     </codetemplate>
     <codetemplate abbreviation="for">
         <code>
-<![CDATA[for (var ${var default="i"} = 0; ${var} < ${max}; ${var}++) {
-    ${selection}${cursor}
+<![CDATA[for (let ${var default="i"}: number = 0; ${var} < ${max}; ${var}++) {
+	${selection}${cursor}
 }]]>
         </code>
     </codetemplate>
     <codetemplate abbreviation="forin">
         <code>
-<![CDATA[for (var ${item} in ${object}) {
-    ${selection}${cursor}
+<![CDATA[for (let ${key} in ${object}) {
+	${selection}${cursor}
+}]]>
+        </code>
+    </codetemplate>
+    <codetemplate abbreviation="forof">
+        <code>
+<![CDATA[for (let ${item} of ${object}) {
+	${selection}${cursor}
 }]]>
         </code>
     </codetemplate>
     <codetemplate abbreviation="fun" descriptionId="CT_fun">
         <code>
 <![CDATA[
-function ${name}(${parameters}) {
-    ${selection}${cursor}
+function ${name}(${parameters}): ${rettype default="any"} {
+	${selection}${cursor}
 }]]>
         </code>
     </codetemplate>
@@ -120,8 +127,8 @@ function ${name}(${parameters}) {
 <![CDATA[/**
  * ${1 default="Comment"}
  */
-function ${name}() {
-    ${cursor}
+function ${name}(): ${type default="any"} {
+	${cursor}
 }]]>
         </code>
     </codetemplate>
@@ -129,10 +136,10 @@ function ${name}() {
         <code>
 <![CDATA[/**
  * ${1 default="Comment"}
- * @param {${type}} ${parameter}
+ * @param {${type default="any"}} ${parameter}
  */
-function ${name}(${parameter}) {
-    ${cursor}
+function ${name}(${parameter}): ${type} {
+	${cursor}
 }]]>
         </code>
     </codetemplate>
@@ -141,29 +148,29 @@ function ${name}(${parameter}) {
 <![CDATA[/**
  * ${1 default="Comment"}
  */
-function ${name}(${parameters}) {
-    ${cursor}
+function ${name}(${parameters}): ${type default="any"} {
+	${cursor}
 }]]>
         </code>
     </codetemplate>
     <codetemplate abbreviation="afun">
         <code>
-<![CDATA[function(${cursor}) {
-    
+<![CDATA[function(${cursor}): ${type default="any"} {
+	
 }]]>
         </code>
     </codetemplate>
     <codetemplate abbreviation="afunn">
         <code>
-<![CDATA[function(${cursor}) {
-    
+<![CDATA[function(${parameters}): ${type default="any"} {
+    ${cursor}
 };
 ]]>
         </code>
     </codetemplate>
     <codetemplate abbreviation="it">
         <code>
-<![CDATA[it('${cursor}', function() {
+<![CDATA[it('${cursor}', () => {
     
 });
 ]]>
@@ -171,7 +178,7 @@ function ${name}(${parameters}) {
     </codetemplate>
     <codetemplate abbreviation="des">
         <code>
-<![CDATA[describe('${cursor}', function() {
+<![CDATA[describe('${cursor}', () => {
     
 });
 ]]>
@@ -199,7 +206,7 @@ function ${name}(${parameters}) {
         </code>
     </codetemplate>
     <codetemplate abbreviation="new">
-        <code><![CDATA[${no-indent}var ${name} = new ${type}(${arguments});]]></code>
+        <code><![CDATA[${no-indent}let ${name} = new ${type}(${arguments});]]></code>
     </codetemplate>
     <codetemplate abbreviation="sw">
         <code>
@@ -232,7 +239,10 @@ function ${name}(${parameters}) {
         <code><![CDATA[${no-indent}"use strict"]]></code>
     </codetemplate>
     <codetemplate abbreviation="var">
-        <code><![CDATA[${no-indent}var ${name} = ${value};]]></code>
+        <code><![CDATA[${no-indent}var ${name}: ${type default="any"} = ${value};]]></code>
+    </codetemplate>
+    <codetemplate abbreviation="let">
+        <code><![CDATA[${no-indent}let ${name}: ${type default="any"} = ${value};]]></code>
     </codetemplate>
     <codetemplate abbreviation="wh">
         <code>
@@ -276,7 +286,14 @@ function ${name}(${parameters}) {
     </codetemplate>
     <codetemplate abbreviation="prf">
         <code>
-<![CDATA[${propertyName}: function(${parameters}) {
+<![CDATA[${propertyName}: function(${parameters}): ${type default="any"} {
+    ${cursor}
+},]]>
+        </code>
+    </codetemplate>
+    <codetemplate abbreviation="prarr">
+        <code>
+<![CDATA[${propertyName}: (${parameters}) => {
     ${cursor}
 },]]>
         </code>
@@ -311,6 +328,20 @@ function ${name}(${parameters}) {
     <codetemplate abbreviation="conw">
         <code><![CDATA[window.console.warn(${warn});]]></code>
     </codetemplate>
+    <codetemplate abbreviation="cla">
+        <code><![CDATA[class ${className} {
+	constructor(${parameters}) {
+		${cursor}
+	}
+}]]>
+</code>
+    </codetemplate>
+    <codetemplate abbreviation="int">
+        <code><![CDATA[interface ${interfaceName} {
+	${cursor}
+}]]>
+</code>
+    </codetemplate>
     <codetemplate abbreviation="cl">
         <code><![CDATA[console.log(${log});]]></code>
     </codetemplate>
@@ -318,25 +349,30 @@ function ${name}(${parameters}) {
         <code><![CDATA[document.write(${message});]]></code>
     </codetemplate>
     <codetemplate abbreviation="slf">
-        <code><![CDATA[var self = this;]]></code>
+        <code><![CDATA[let self = this;]]></code>
     </codetemplate>
     <codetemplate abbreviation="do"><code><![CDATA[${no-indent}document]]></code></codetemplate>
     <codetemplate abbreviation="lo"><code><![CDATA[${no-indent}window.location]]></code></codetemplate>
     <codetemplate abbreviation="hi"><code><![CDATA[${no-indent}window.history]]></code></codetemplate>
     <codetemplate abbreviation="win"><code><![CDATA[${no-indent}window]]></code></codetemplate>
     <codetemplate abbreviation="be">
-        <code><![CDATA[beforeEach(function() {
+        <code><![CDATA[beforeEach(() => {
     ${cursor}
-});]]></code>
+});
+]]></code>
     </codetemplate>
     <codetemplate abbreviation="ae">
-        <code><![CDATA[afterEach(function() {
+        <code><![CDATA[afterEach(() => {
     ${cursor}
-});]]></code>
+});
+]]></code>
     </codetemplate>
 	<codetemplate abbreviation="arr">
-		<code><![CDATA[(${parameters}) => {
+		<code><![CDATA[(${parameters default="it"}) => {
 	${cursor}
 }]]></code>
+	</codetemplate>
+	<codetemplate abbreviation="ref">
+		<code><![CDATA[/// <reference path="${path default="file.d.ts"}" />]]></code>
 	</codetemplate>
 </codetemplates>
