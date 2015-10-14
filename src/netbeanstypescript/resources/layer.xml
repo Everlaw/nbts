@@ -17,10 +17,10 @@
                 </file>-->
 
                 <folder name="CodeTemplates">
-					<folder name="Defaults">
-						<file name="tscodetemplates.xml" url="tscodetemplates.xml"/>
-					</folder>
-		</folder>
+                    <folder name="Defaults">
+                        <file name="tscodetemplates.xml" url="tscodetemplates.xml"/>
+                    </folder>
+                </folder>
                 <folder name="Popup">
                     <!--<file name="org-netbeans-modules-refactoring-api-ui-WhereUsedAction.shadow">
                         <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-refactoring-api-ui-WhereUsedAction.instance"/>
