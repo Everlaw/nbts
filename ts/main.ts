@@ -117,7 +117,7 @@ class Program {
         var errs = this.service.getSyntacticDiagnostics(fileName).concat(
                 this.service.getSemanticDiagnostics(fileName));
         return errs.map(diag => ({
-            line: ts.getLineAndCharacterOfPosition(diag.file, diag.start).line,
+            line: ts.getLineAndCharacterOfPosition(diag.file, diag.start).line + 1,
             start: diag.start,
             length: diag.length,
             messageText: ts.flattenDiagnosticMessageText(diag.messageText, "\n"),
@@ -174,7 +174,7 @@ class Program {
             return {
                 fileName: di.fileName,
                 start: di.textSpan.start,
-                line: sourceFile.getLineAndCharacterOfPosition(di.textSpan.start).line,
+                line: sourceFile.getLineAndCharacterOfPosition(di.textSpan.start).line + 1,
                 kind: di.kind,
                 name: di.name,
                 containerKind: di.containerKind,
