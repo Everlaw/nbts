@@ -119,6 +119,8 @@ public class TSService {
         NodeJSProcess() throws Exception {
             System.out.println("TSService: starting nodejs");
             File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
+            // Node installs to /usr/local/bin on OS X, but OS X doesn't put /usr/local/bin in the
+            // PATH of applications started from the GUI
             for (String command: new String[] { "nodejs", "node", "/usr/local/bin/node" }) {
                 try {
                     Process process = new ProcessBuilder()
