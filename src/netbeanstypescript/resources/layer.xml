@@ -22,11 +22,8 @@
                     </folder>
                 </folder>
                 <folder name="Popup">
-                    <!--<file name="org-netbeans-modules-refactoring-api-ui-WhereUsedAction.shadow">
+                    <file name="org-netbeans-modules-refactoring-api-ui-WhereUsedAction.shadow">
                         <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-refactoring-api-ui-WhereUsedAction.instance"/>
-                        <attr name="position" intvalue="600"/>
-                    </file>-->
-                    <file name="netbeanstypescript-TSFindUsagesAction.instance">
                         <attr name="position" intvalue="600"/>
                     </file>
                 </folder>

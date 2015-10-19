@@ -37,11 +37,9 @@
  */
 package netbeanstypescript;
 
-import java.awt.event.ActionEvent;
 import java.util.Collection;
 import javax.swing.event.ChangeListener;
-import javax.swing.text.JTextComponent;
-import org.netbeans.editor.BaseAction;
+import javax.swing.text.Document;
 import org.netbeans.lib.editor.util.StringEscapeUtils;
 import org.netbeans.modules.csl.api.ElementHandle;
 import org.netbeans.modules.csl.spi.GsfUtilities;
@@ -52,9 +50,11 @@ import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
 import org.netbeans.modules.refactoring.spi.RefactoringPluginFactory;
 import org.netbeans.modules.refactoring.spi.SimpleRefactoringElementImplementation;
+import org.netbeans.modules.refactoring.spi.ui.ActionsImplementationProvider;
 import org.netbeans.modules.refactoring.spi.ui.CustomRefactoringPanel;
 import org.netbeans.modules.refactoring.spi.ui.RefactoringUI;
 import org.netbeans.modules.refactoring.spi.ui.UI;
+import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.text.PositionBounds;
 import org.openide.util.HelpCtx;
@@ -65,13 +65,25 @@ import org.openide.util.lookup.ServiceProvider;
  *
  * @author jeffrey
  */
-public class TSFindUsagesAction extends BaseAction {
-
-    TSFindUsagesAction() { super("Find Usages"); }
+@ServiceProvider(service=ActionsImplementationProvider.class)
+public class TSRefactoring extends ActionsImplementationProvider {
 
     @Override
-    public void actionPerformed(ActionEvent event, JTextComponent target) {
-        final TSWhereUsedQuery query = new TSWhereUsedQuery(target);
+    public boolean canFindUsages(Lookup lookup) {
+        EditorCookie cookie = lookup.lookup(EditorCookie.class);
+        if (cookie != null) {
+            Document doc = cookie.getDocument();
+            if (doc != null) {
+                FileObject fo = GsfUtilities.findFileObject(doc);
+                return fo != null && "text/typescript".equals(fo.getMIMEType());
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void doFindUsages(Lookup lookup) {
+        final TSWhereUsedQuery query = new TSWhereUsedQuery(lookup.lookup(EditorCookie.class));
 
         final ElementHandle decl = TSService.INSTANCE.findDeclaration(query.fileObj, query.caretPosition).getElement();
         final String name = decl != null ? decl.getName() : "(unknown symbol)";
@@ -97,11 +109,11 @@ public class TSFindUsagesAction extends BaseAction {
         // for the wrong symbol. Fixing this would probably be more difficult than it's worth.
         FileObject fileObj;
         int caretPosition;
-        
-        TSWhereUsedQuery(JTextComponent target) {
+
+        TSWhereUsedQuery(EditorCookie ec) {
             super(Lookup.EMPTY);
-            this.fileObj = GsfUtilities.findFileObject(target);
-            this.caretPosition = target.getCaretPosition();
+            this.fileObj = GsfUtilities.findFileObject(ec.getDocument());
+            this.caretPosition = ec.getOpenedPanes()[0].getCaretPosition();
         }
 
         class Plugin implements RefactoringPlugin {
