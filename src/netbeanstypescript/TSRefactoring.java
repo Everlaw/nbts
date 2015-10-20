@@ -37,23 +37,29 @@
  */
 package netbeanstypescript;
 
+import java.awt.Component;
+import java.awt.Dimension;
 import java.util.Collection;
+import java.util.Collections;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.event.ChangeListener;
 import javax.swing.text.Document;
+import org.json.simple.JSONObject;
 import org.netbeans.lib.editor.util.StringEscapeUtils;
 import org.netbeans.modules.csl.api.ElementHandle;
 import org.netbeans.modules.csl.spi.GsfUtilities;
-import org.netbeans.modules.refactoring.api.AbstractRefactoring;
-import org.netbeans.modules.refactoring.api.Problem;
-import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
-import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
-import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
-import org.netbeans.modules.refactoring.spi.RefactoringPluginFactory;
-import org.netbeans.modules.refactoring.spi.SimpleRefactoringElementImplementation;
-import org.netbeans.modules.refactoring.spi.ui.ActionsImplementationProvider;
-import org.netbeans.modules.refactoring.spi.ui.CustomRefactoringPanel;
-import org.netbeans.modules.refactoring.spi.ui.RefactoringUI;
-import org.netbeans.modules.refactoring.spi.ui.UI;
+import org.netbeans.modules.csl.spi.support.ModificationResult;
+import org.netbeans.modules.refactoring.api.*;
+import org.netbeans.modules.refactoring.spi.*;
+import org.netbeans.modules.refactoring.spi.ui.*;
+import org.openide.DialogDisplayer;
+import org.openide.NotifyDescriptor;
+import org.openide.awt.Mnemonics;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.text.PositionBounds;
@@ -145,12 +151,129 @@ public class TSRefactoring extends ActionsImplementationProvider {
         };
     }
 
+    @Override
+    public boolean canRename(Lookup lookup) {
+        return canFindUsages(lookup);
+    }
+
+    @Override
+    public void doRename(Lookup lookup) {
+        EditorCookie ec = lookup.lookup(EditorCookie.class);
+        final FileObject fileObj = GsfUtilities.findFileObject(ec.getDocument());
+        final int position = ec.getOpenedPanes()[0].getCaretPosition();
+
+        final JSONObject obj = TSService.INSTANCE.getRenameInfo(fileObj, position);
+        if (obj == null) {
+            return;
+        } else if (! (Boolean)obj.get("canRename")) {
+            DialogDisplayer.getDefault().notify(
+                    new NotifyDescriptor.Message(obj.get("localizedErrorMessage"), NotifyDescriptor.ERROR_MESSAGE));
+            return;
+        }
+
+        final RenamePanel panel = new RenamePanel((String) obj.get("displayName"));
+        final TSRenameRefactoring refactoring = new TSRenameRefactoring(fileObj, position, panel);
+        UI.openRefactoringUI(new RefactoringUI() {
+            @Override public String getName() {
+                return "Rename " + obj.get("kind") + " " + obj.get("fullDisplayName");
+            }
+            @Override public String getDescription() {
+                return "Rename <b>" + StringEscapeUtils.escapeHtml((String) obj.get("displayName")) +
+                        "</b> to <b>" + StringEscapeUtils.escapeHtml(panel.newName.getText()) + "</b>";
+            }
+            @Override public boolean isQuery() { return false; }
+            @Override public CustomRefactoringPanel getPanel(ChangeListener cl) { return panel; }
+            @Override public Problem setParameters() { return null; }
+            @Override public Problem checkParameters() { return null; }
+            @Override public boolean hasParameters() { return true; }
+            @Override public AbstractRefactoring getRefactoring() { return refactoring; }
+            @Override public HelpCtx getHelpCtx() { return null; }
+        });
+    }
+
+    private class RenamePanel extends JPanel implements CustomRefactoringPanel {
+        final String oldName;
+        final JTextField newName = new JTextField();
+        final JCheckBox findInStrings = new JCheckBox();
+        final JCheckBox findInComments = new JCheckBox();
+
+        RenamePanel(String oldName) {
+            this.oldName = oldName;
+            setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
+            Box topRow = Box.createHorizontalBox();
+            JLabel newNameLabel = new JLabel();
+            Mnemonics.setLocalizedText(newNameLabel, "&New Name: ");
+            newNameLabel.setLabelFor(newName);
+            newName.setText(oldName);
+            newName.selectAll();
+            newName.setMaximumSize(new Dimension(Integer.MAX_VALUE, newName.getPreferredSize().height));
+            topRow.add(newNameLabel);
+            topRow.add(newName);
+            topRow.setAlignmentX(LEFT_ALIGNMENT);
+            add(topRow);
+            Mnemonics.setLocalizedText(findInStrings, "Apply Rename on &Strings");
+            add(findInStrings);
+            Mnemonics.setLocalizedText(findInComments, "Apply Rename on &Comments");
+            add(findInComments);
+        }
+
+        @Override
+        public boolean requestFocusInWindow() {
+            newName.requestFocusInWindow();
+            return true;
+        }
+
+        @Override
+        public void initialize() {}
+
+        @Override
+        public Component getComponent() { return this; }
+    }
+
+    private class TSRenameRefactoring extends AbstractRefactoring {
+        final FileObject fileObj;
+        final int position;
+        final RenamePanel panel;
+
+        TSRenameRefactoring(FileObject fileObj, int position, RenamePanel panel) {
+            super(Lookup.EMPTY);
+            this.fileObj = fileObj;
+            this.position = position;
+            this.panel = panel;
+        }
+
+        class Plugin implements RefactoringPlugin {
+            @Override public Problem preCheck() { return null; }
+            @Override public Problem checkParameters() { return null; }
+            @Override public Problem fastCheckParameters() { return null; }
+            @Override public void cancelRequest() {}
+            @Override public Problem prepare(RefactoringElementsBag refactoringElements) {
+                ModificationResult modificationResult = TSService.INSTANCE.findRenameLocations(
+                        fileObj, position,
+                        panel.findInStrings.isSelected(), panel.findInComments.isSelected(),
+                        panel.oldName, panel.newName.getText());
+                if (modificationResult == null) {
+                    return new Problem(true, "findRenameLocations returned null");
+                }
+                refactoringElements.registerTransaction(new RefactoringCommit(Collections.singletonList(modificationResult)));
+                for (FileObject fo: modificationResult.getModifiedFileObjects()) {
+                    for (ModificationResult.Difference diff: modificationResult.getDifferences(fo)) {
+                        refactoringElements.add(TSRenameRefactoring.this, DiffElement.create(diff, fo, modificationResult));
+                    }
+                }
+                return null;
+            }
+        };
+    }
+
     @ServiceProvider(service = RefactoringPluginFactory.class)
     public static class TSRefactoringPluginFactory implements RefactoringPluginFactory {
         @Override
         public RefactoringPlugin createInstance(AbstractRefactoring refactoring) {
             if (refactoring instanceof TSWhereUsedQuery) {
                 return ((TSWhereUsedQuery) refactoring).new Plugin();
+            } else if (refactoring instanceof TSRenameRefactoring) {
+                return ((TSRenameRefactoring) refactoring).new Plugin();
             }
             return null;
         }

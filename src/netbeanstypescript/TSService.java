@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,7 @@ import org.netbeans.modules.csl.api.DeclarationFinder.DeclarationLocation;
 import org.netbeans.modules.csl.spi.DefaultCompletionResult;
 import org.netbeans.modules.csl.spi.DefaultError;
 import org.netbeans.modules.csl.spi.GsfUtilities;
+import org.netbeans.modules.csl.spi.support.ModificationResult;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.parsing.spi.indexing.Context;
@@ -617,5 +619,59 @@ public class TSService {
         Object res = fd.program.call("getFormattingEdits", fd.relPath, start, end,
                 indent, tabSize, expandTabs);
         return res != null ? (List<JSONObject>) res : Collections.<JSONObject>emptyList();
+    }
+
+    synchronized JSONObject getRenameInfo(FileObject fileObj, int position) {
+        FileData fd = allFiles.get(fileObj);
+        if (fd == null) {
+            return null;
+        }
+        return (JSONObject) fd.program.call("getRenameInfo", fd.relPath, position);
+    }
+
+    synchronized ModificationResult findRenameLocations(FileObject fileObj, int position,
+            boolean findInStrings, boolean findInComments, String oldText, String newText) {
+        FileData fd = allFiles.get(fileObj);
+        if (fd == null) {
+            return null;
+        }
+        JSONArray arr = (JSONArray) fd.program.call("findRenameLocations", fd.relPath, position, findInStrings, findInComments);
+        if (arr == null) {
+            return null;
+        }
+        ModificationResult result = new ModificationResult();
+        for (JSONObject loc: (List<JSONObject>) arr) {
+            FileObject locFileObj = fd.program.getFile((String) loc.get("fileName"));
+            CloneableEditorSupport ces = GsfUtilities.findCloneableEditorSupport(locFileObj);
+            result.addDifferences(locFileObj, Collections.singletonList(new ModificationResult.Difference(
+                    ModificationResult.Difference.Kind.CHANGE,
+                    ces.createPositionRef(((Number) loc.get("start")).intValue(), Bias.Forward),
+                    ces.createPositionRef(((Number) loc.get("end")).intValue(), Bias.Forward),
+                    oldText, newText)));
+        }
+        return result;
+    }
+
+    synchronized Set<OffsetRange> getInstantRenameRegions(FileObject fileObj, int position) {
+        FileData fd = allFiles.get(fileObj);
+        if (fd == null) {
+            return null;
+        }
+        JSONArray arr = (JSONArray) fd.program.call("findRenameLocations", fd.relPath, position, false, false);
+        if (arr == null) {
+            return null;
+        }
+        Set<OffsetRange> set = new HashSet<>();
+        for (JSONObject loc: (List<JSONObject>) arr) {
+            if (fd.program.getFile((String) loc.get("fileName")) != fileObj) {
+                // There's a reference in another file; can't instant rename. Return null so that
+                // InstantRenameAction will start a refactoring rename instead.
+                return null;
+            }
+            set.add(new OffsetRange(
+                    ((Number) loc.get("start")).intValue(),
+                    ((Number) loc.get("end")).intValue()));
+        }
+        return set;
     }
 }

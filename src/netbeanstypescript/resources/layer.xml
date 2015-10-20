@@ -26,6 +26,10 @@
                         <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-refactoring-api-ui-WhereUsedAction.instance"/>
                         <attr name="position" intvalue="600"/>
                     </file>
+                    <file name="org-netbeans-modules-refactoring-api-ui-RenameAction.shadow">
+                        <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-refactoring-api-ui-RenameAction.instance"/>
+                        <attr name="position" intvalue="700"/>
+                    </file>
                 </folder>
 
                 <!-- colors -->

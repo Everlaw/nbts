@@ -57,6 +57,6 @@ public class TSInstantRenamer implements InstantRenamer {
     @Override
     public Set<OffsetRange> getRenameRegions(ParserResult info, int caretOffset) {
         FileObject file = info.getSnapshot().getSource().getFileObject();
-        return TSService.INSTANCE.findOccurrences(file, caretOffset).keySet();
+        return TSService.INSTANCE.getInstantRenameRegions(file, caretOffset);
     }
 }

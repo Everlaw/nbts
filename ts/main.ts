@@ -441,6 +441,19 @@ class Program {
             PlaceOpenBraceOnNewLineForControlBlocks: false
         }).map(edit => ({ s: edit.span.start, l: edit.span.length, t: edit.newText }));
     }
+    getRenameInfo(fileName: string, position: number) {
+        return this.service.getRenameInfo(fileName, position);
+    }
+    findRenameLocations(fileName: string, position: number, findInStrings: boolean, findInComments: boolean) {
+        var locs = this.service.findRenameLocations(fileName, position, findInStrings, findInComments);
+        return locs && locs.map(loc => {
+            return {
+                fileName: loc.fileName,
+                start: loc.textSpan.start,
+                end: loc.textSpan.start + loc.textSpan.length,
+            };
+        });
+    }
 }
 
 require('readline').createInterface(process.stdin, process.stdout).on('line', (l: string) => {
