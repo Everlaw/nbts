@@ -14,7 +14,7 @@ This plugin allows editing of TypeScript code within NetBeans. Many IDE features
 
 For this plugin to work, you will need to have Node.js version 0.8.0 or later installed.
 
-In NetBeans, go to Tools > Plugins, and select the "Downloaded" tab. Click "Add Plugins..." and locate the netbeanstypescript.nbm file. The TypeScript Editor should appear in the list. Select it and click "Install".
+Download the latest netbeanstypescript.nbm file from the [Releases](https://github.com/Everlaw/nbts/releases) page. Then, in NetBeans, go to Tools > Plugins, and select the "Downloaded" tab. Click "Add Plugins..." and locate the netbeanstypescript.nbm file. The TypeScript Editor should appear in the list. Select it and click "Install".
 
 ### Notes
 
