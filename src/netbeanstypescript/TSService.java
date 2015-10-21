@@ -674,4 +674,12 @@ public class TSService {
         }
         return set;
     }
+
+    synchronized JSONObject getEmitOutput(FileObject fileObj) {
+        FileData fd = allFiles.get(fileObj);
+        if (fd == null) {
+            return null;
+        }
+        return (JSONObject) fd.program.call("getEmitOutput", fd.relPath);
+    }
 }

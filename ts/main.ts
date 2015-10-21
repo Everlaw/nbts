@@ -41,6 +41,9 @@ class HostImpl implements ts.LanguageServiceHost {
         }
         return settings;
     }
+    getNewLine() {
+        return ts.getNewLineCharacter(this.config);
+    }
     getProjectVersion() {
         return String(this.version);
     }
@@ -102,7 +105,8 @@ class Program {
             };
         } else if (/\.json$/.test(fileName)) { // tsconfig.json
             var pch: ts.ParseConfigHost = { readDirectory: () => [] };
-            this.host.config = ts.parseConfigFile(JSON.parse(newText), pch, null).options;
+            var basePath = ts.getDirectoryPath(fileName);
+            this.host.config = ts.parseConfigFile(JSON.parse(newText), pch, basePath).options;
         }
     }
     deleteFile(fileName: string) {
@@ -453,6 +457,9 @@ class Program {
                 end: loc.textSpan.start + loc.textSpan.length,
             };
         });
+    }
+    getEmitOutput(fileName: string) {
+        return this.service.getEmitOutput(fileName);
     }
 }
 

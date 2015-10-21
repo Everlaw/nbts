@@ -37,12 +37,26 @@
  */
 package netbeanstypescript;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.prefs.Preferences;
+import org.json.simple.JSONObject;
+import org.netbeans.api.project.FileOwnerQuery;
+import org.netbeans.api.project.Project;
+import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
+import org.openide.DialogDisplayer;
+import org.openide.NotifyDescriptor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 
@@ -63,12 +77,17 @@ public class TSIndexerFactory extends CustomIndexerFactory {
         return new CustomIndexer() {
 
             @Override
-            protected void index(Iterable<? extends Indexable> itrbl, Context cntxt) {
-                for (Indexable indxbl: itrbl) {
-                    FileObject fo = cntxt.getRoot().getFileObject(indxbl.getRelativePath());
-                    if (fo != null && ("text/typescript".equals(FileUtil.getMIMEType(fo))
-                            || fo.getNameExt().equals("tsconfig.json"))) {
-                        TSService.INSTANCE.addFile(Source.create(fo).createSnapshot(), indxbl, cntxt);
+            protected void index(Iterable<? extends Indexable> files, Context context) {
+                for (Indexable indxbl: files) {
+                    FileObject fo = context.getRoot().getFileObject(indxbl.getRelativePath());
+                    if (fo == null) continue;
+                    if ("text/typescript".equals(FileUtil.getMIMEType(fo))) {
+                        TSService.INSTANCE.addFile(Source.create(fo).createSnapshot(), indxbl, context);
+                        if (! context.isAllFilesIndexing() && ! context.checkForEditorModifications()) {
+                            compileIfEnabled(context.getRoot(), fo);
+                        }
+                    } else if (fo.getNameExt().equals("tsconfig.json")) {
+                        TSService.INSTANCE.addFile(Source.create(fo).createSnapshot(), indxbl, context);
                     }
                 }
             }
@@ -86,14 +105,14 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     }
 
     @Override
-    public void filesDeleted(Iterable<? extends Indexable> itrbl, Context cntxt) {
-        for (Indexable i: itrbl) {
-            TSService.INSTANCE.removeFile(i, cntxt);
+    public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
+        for (Indexable i: deleted) {
+            TSService.INSTANCE.removeFile(i, context);
         }
     }
 
     @Override
-    public void filesDirty(Iterable<? extends Indexable> itrbl, Context cntxt) {
+    public void filesDirty(Iterable<? extends Indexable> dirty, Context context) {
     }
 
     @Override
@@ -111,5 +130,41 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     @Override
     public int getIndexVersion() {
         return 0;
+    }
+
+    private void compileIfEnabled(FileObject root, FileObject fileObject) {
+        Project project = FileOwnerQuery.getOwner(root);
+        if (project == null) {
+            return;
+        }
+        Preferences prefs = ProjectUtils.getPreferences(project, TSProjectCustomizer.class, true);
+        if (! "true".equals(prefs.get("compileOnSave", null))) {
+            return;
+        }
+        System.out.println("Compiling " + fileObject.getPath());
+        JSONObject res = TSService.INSTANCE.getEmitOutput(fileObject);
+        if (res == null) {
+            return;
+        }
+        Path rootPath = Paths.get(root.getPath());
+        for (JSONObject file: (List<JSONObject>) res.get("outputFiles")) {
+            String name = (String) file.get("name");
+            boolean writeBOM = Boolean.TRUE.equals(file.get("writeByteOrderMark"));
+            String text = (String) file.get("text");
+            Path p = rootPath.resolve(name);
+            System.out.println("Writing " + p);
+            try {
+                Files.createDirectories(p.getParent());
+                try (Writer w = Files.newBufferedWriter(p, StandardCharsets.UTF_8)) {
+                    if (writeBOM) w.write('\uFEFF');
+                    w.write(text);
+                }
+            } catch (IOException e) {
+                String error = "Compile on save: could not write file " + name + "\n" + e;
+                DialogDisplayer.getDefault().notify(
+                        new NotifyDescriptor.Message(error, NotifyDescriptor.ERROR_MESSAGE));
+                break;
+            }
+        }
     }
 }
