@@ -280,6 +280,8 @@ class Program {
             switch (node.kind) {
                 case SK.MethodDeclaration:
                 case SK.FunctionDeclaration:
+                    highlightIdent(node.name, 'METHOD');
+                    break;
                 case SK.ClassDeclaration:
                 case SK.InterfaceDeclaration:
                 case SK.TypeAliasDeclaration:
@@ -287,7 +289,7 @@ class Program {
                 case SK.ModuleDeclaration:
                     // name.kind could be string (external module decl); don't highlight that
                     if (node.name.kind === SK.Identifier) {
-                        highlightIdent(node.name, 'METHOD');
+                        highlightIdent(node.name, 'CLASS');
                     }
                     break;
                 case SK.Constructor:

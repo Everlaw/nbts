@@ -4,6 +4,7 @@
     <folder name="Editors">
         <folder name="text">
             <folder name="typescript">
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>
                 <!--<file name="AutoIndenter.instance">
                     <attr name="instanceOf" stringvalue="org.netbeans.spi.editor.typinghooks.TypedTextInterceptor$Factory"/>
                     <attr name="instanceCreate"
@@ -18,7 +19,9 @@
 
                 <folder name="CodeTemplates">
                     <folder name="Defaults">
-                        <file name="tscodetemplates.xml" url="tscodetemplates.xml"/>
+                        <file name="tscodetemplates.xml" url="tscodetemplates.xml">
+                            <attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>
+                        </file>
                     </folder>
                 </folder>
                 <folder name="Popup">
@@ -37,21 +40,21 @@
                     <folder name="NetBeans">
                         <folder name="Defaults">
                             <file name="coloring.xml" url="fontsColors.xml">
-                                <!--<attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>-->
+                                <attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>
                             </file>
                         </folder>
                     </folder>
                     <folder name="BlueTheme">
                         <folder name="Defaults">
                             <file name="coloring.xml" url="fontsColors-bluetheme.xml">
-                                <!--<attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>-->
+                                <attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>
                             </file>
                         </folder>
                     </folder>
                     <folder name="CityLights">
                         <folder name="Defaults">
                             <file name="coloring.xml" url="fontsColors-citylights.xml">
-                                <!--<attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>-->
+                                <attr name="SystemFileSystem.localizingBundle" stringvalue="netbeanstypescript.resources.Bundle"/>
                             </file>
                         </folder>
                     </folder>
