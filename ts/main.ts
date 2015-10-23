@@ -68,6 +68,11 @@ class HostImpl implements ts.LanguageServiceHost {
     getDefaultLibFileName(options: ts.CompilerOptions): string {
         return "(builtin) " + ts.getDefaultLibFileName(options);
     }
+    useCaseSensitiveFileNames() {
+        // Necessary on Unix, should be OK on Windows since filenames always come from the indexer
+        // and should therefore be canonical.
+        return true;
+    }
 }
 
 class SnapshotImpl implements ts.IScriptSnapshot {
@@ -95,7 +100,7 @@ class SnapshotImpl implements ts.IScriptSnapshot {
 
 class Program {
     host = new HostImpl();
-    service = ts.createLanguageService(this.host, ts.createDocumentRegistry());
+    service = ts.createLanguageService(this.host, ts.createDocumentRegistry(true));
     updateFile(fileName: string, newText: string, modified: boolean) {
         this.host.version++;
         if (/\.tsx?$/.test(fileName)) {
@@ -194,8 +199,9 @@ class Program {
         }));
     }
     getNetbeansSemanticHighlights(fileName: string) {
-        var sourceFile = this.service.getRealSourceFile(fileName);
-        var typeInfoResolver = this.service.getProgram().getTypeChecker();
+        var program = this.service.getProgram();
+        var sourceFile = program.getSourceFile(ts.normalizeSlashes(fileName));
+        var typeInfoResolver = program.getTypeChecker();
 
         var results: any[] = [];
         var resultByPos: {[pos: number]: any} = {};
@@ -314,8 +320,9 @@ class Program {
         return results;
     }
     getStructureItems(fileName: string) {
-        var sourceFile = this.service.getRealSourceFile(fileName);
-        var typeInfoResolver = this.service.getProgram().getTypeChecker();
+        var program = this.service.getProgram();
+        var sourceFile = program.getSourceFile(ts.normalizeSlashes(fileName));
+        var typeInfoResolver = program.getTypeChecker();
 
         function buildResults(topNode: ts.Node, inFunction: boolean) {
             var results: any[] = [];

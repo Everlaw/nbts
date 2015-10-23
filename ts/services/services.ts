@@ -1101,8 +1101,6 @@ namespace ts {
         getSourceFile(fileName: string): SourceFile;
 
         dispose(): void;
-
-        getRealSourceFile(filename: string): SourceFile;
     }
 
     export interface Classifications {
@@ -2564,7 +2562,8 @@ namespace ts {
         let program: Program;
         let lastProjectVersion: string;
 
-        let useCaseSensitivefileNames = false;
+        let useCaseSensitivefileNames = //false;
+                host.useCaseSensitiveFileNames ? host.useCaseSensitiveFileNames() : false;
         let cancellationToken = new CancellationTokenObject(host.getCancellationToken && host.getCancellationToken());
 
         // Check if the localized messages json is set, otherwise query the host for it
@@ -7322,11 +7321,7 @@ namespace ts {
             getDocCommentTemplateAtPosition,
             getEmitOutput,
             getSourceFile,
-            getProgram,
-            getRealSourceFile: function(fileName) {
-                synchronizeHostData();
-                return getValidSourceFile(fileName);
-            }
+            getProgram
         };
     }
 
