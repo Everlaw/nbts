@@ -123,9 +123,7 @@ class Program {
         }
     }
     getDiagnostics(fileName: string) {
-        var errs = this.service.getSyntacticDiagnostics(fileName).concat(
-                this.service.getSemanticDiagnostics(fileName));
-        return errs.map(diag => ({
+        var mapDiag = (diag: ts.Diagnostic) => ({
             line: ts.getLineAndCharacterOfPosition(diag.file, diag.start).line + 1,
             start: diag.start,
             length: diag.length,
@@ -135,7 +133,20 @@ class Program {
                 ? ts.DiagnosticCategory.Warning
                 : diag.category,
             code: diag.code
-        }));
+        });
+        var errs = this.service.getSyntacticDiagnostics(fileName).map(mapDiag);
+        try {
+            // In case there are bugs in the type checker, make sure we can handle it throwing an
+            // exception and still show the syntactic errors.
+            errs = errs.concat(this.service.getSemanticDiagnostics(fileName).map(mapDiag));
+        } catch (e) {
+            errs.push({
+                line: 1, start: 0, length: 1,
+                messageText: "Error in getSemanticDiagnostics\n\n" + e.stack,
+                category: -1, code: 0
+            });
+        }
+        return errs;
     }
     getAllDiagnostics() {
         var errs: any = {};

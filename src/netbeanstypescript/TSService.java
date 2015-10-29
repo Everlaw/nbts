@@ -430,7 +430,7 @@ public class TSService {
             int category = ((Number) err.get("category")).intValue();
             //int code = ((Number) err.get("code")).intValue();
             errors.add(new DefaultError(null, messageText, null,
-                    fo, start, start + length, false,
+                    fo, start, start + length, category < 0,
                     category == 0 ? Severity.WARNING : Severity.ERROR));
         }
         return errors;
