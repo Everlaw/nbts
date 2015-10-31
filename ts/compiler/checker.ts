@@ -1,3 +1,6 @@
+// This file has been modified from the original for netbeanstypescript.
+// Portions Copyrighted 2015 Everlaw
+
 /// <reference path="binder.ts"/>
 
 /* @internal */
@@ -1533,6 +1536,13 @@ namespace ts {
                     }
                     parentSymbol = symbol;
                     appendSymbolNameOnly(symbol, writer);
+
+                    // nbts: Parent may actually be an alias to a class/interface, not a
+                    // class/interface itself (TS issue #5464)
+                    if ((parentSymbol.flags & (SymbolFlags.Alias | SymbolFlags.Class | SymbolFlags.Interface))
+                            === SymbolFlags.Alias) {
+                        parentSymbol = resolveAlias(parentSymbol);
+                    }
                 }
 
                 // Let the writer know we just wrote out a symbol.  The declaration emitter writer uses
@@ -10810,7 +10820,7 @@ namespace ts {
                         seen = c === node;
                     }
                 });
-                if (subsequentNode) {
+                if (subsequentNode && /* nbts: fix TS issue #5444 */ node.end === subsequentNode.pos) {
                     if (subsequentNode.kind === node.kind) {
                         let errorNode: Node = (<FunctionLikeDeclaration>subsequentNode).name || subsequentNode;
                         // TODO(jfreeman): These are methods, so handle computed name case
