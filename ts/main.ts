@@ -234,9 +234,11 @@ class Program {
         var usedSymbols = new Set<ts.Symbol>();
 
         function isGlobal(decl: ts.Node) {
-            do {
-                decl = decl.parent;
-            } while (! decl.locals);
+            if (decl.kind !== SK.SourceFile) {
+                do {
+                    decl = decl.parent;
+                } while (! decl.locals);
+            }
             return decl.kind === SK.SourceFile && ! ts.isExternalModule(<ts.SourceFile>decl);
         }
 
@@ -267,6 +269,9 @@ class Program {
                     }
                 } else {
                     // usage
+                    // TODO: In code like "import A = X; import B = A.foo;" this does not do quite
+                    // what we want. For the A in A.foo, it returns the aliased symbol X rather than
+                    // the alias A, so we fail to recognize that the alias A is used.
                     symbol = typeInfoResolver.getSymbolAtLocation(node);
                     if (symbol) {
                         // if this is a generic instantiation, find the original symbol
