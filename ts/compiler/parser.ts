@@ -1,3 +1,6 @@
+// This file has been modified from the original for netbeanstypescript.
+// Portions Copyrighted 2015 Everlaw
+
 /// <reference path="scanner.ts"/>
 /// <reference path="utilities.ts"/>
 
@@ -3818,6 +3821,15 @@ namespace ts {
         function parseNewExpression(): NewExpression {
             let node = <NewExpression>createNode(SyntaxKind.NewExpression);
             parseExpected(SyntaxKind.NewKeyword);
+            // netbeanstypescript - Remove this when #4630 is fixed
+            if (token === ts.SyntaxKind.ClassKeyword && sourceFile.languageVersion < ts.ScriptTarget.ES6) {
+                parseErrorAtCurrentToken({
+                    key: "Class expression after 'new' must be parenthesized, or incorrect JS will be emitted."
+                       + "\nSee https://github.com/Microsoft/TypeScript/issues/4630",
+                    category: ts.DiagnosticCategory.Error,
+                    code: 0
+                });
+            }
             node.expression = parseMemberExpressionOrHigher();
             node.typeArguments = tryParse(parseTypeArgumentsInExpression);
             if (node.typeArguments || token === SyntaxKind.OpenParenToken) {
