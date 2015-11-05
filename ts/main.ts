@@ -234,11 +234,15 @@ class Program {
         var usedSymbols = new Set<ts.Symbol>();
 
         function isGlobal(decl: ts.Node) {
-            if (decl.kind !== SK.SourceFile) {
-                do {
-                    decl = decl.parent;
-                } while (! decl.locals);
+            switch (decl.kind) {
+                case SK.FunctionExpression:
+                case SK.ClassExpression:
+                case SK.SourceFile:
+                    return false;
             }
+            do {
+                decl = decl.parent;
+            } while (! decl.locals);
             return decl.kind === SK.SourceFile && ! ts.isExternalModule(<ts.SourceFile>decl);
         }
 
@@ -247,6 +251,9 @@ class Program {
                 var isLocal: boolean;
                 if (node.kind === SK.Parameter && ! node.parent.body) {
                     // don't complain about unused parameters in functions with no implementation body
+                    isLocal = false;
+                } else if (node.kind === SK.ExportSpecifier) {
+                    usedSymbols.add(typeInfoResolver.getAliasedSymbol(node.symbol));
                     isLocal = false;
                 } else if (node.symbol.flags & 0x1A00C) {
                     // property, enum member, method, get/set - public by default
@@ -288,8 +295,8 @@ class Program {
                     if (symbol.flags & 0x1800C) {
                         // Property, EnumMember, GetAccessor, SetAccessor
                         highlightIdent(node, 'FIELD');
-                    } else if (symbol.flags & 0x7FB) {
-                        // var, function, class, interface, enum, module
+                    } else if (symbol.flags & ts.SymbolFlags.ModuleMember) {
+                        // var, function, class, interface, enum, module, type alias, alias
                         if (isGlobal(decls[0])) {
                             highlightIdent(node, 'GLOBAL');
                         }
@@ -301,16 +308,18 @@ class Program {
             }
             switch (node.kind) {
                 case SK.MethodDeclaration:
+                case SK.FunctionExpression:
                 case SK.FunctionDeclaration:
-                    highlightIdent(node.name, 'METHOD');
+                    node.name && highlightIdent(node.name, 'METHOD');
                     break;
+                case SK.ClassExpression:
                 case SK.ClassDeclaration:
                 case SK.InterfaceDeclaration:
                 case SK.TypeAliasDeclaration:
                 case SK.EnumDeclaration:
                 case SK.ModuleDeclaration:
                     // name.kind could be string (external module decl); don't highlight that
-                    if (node.name.kind === SK.Identifier) {
+                    if (node.name && node.name.kind === SK.Identifier) {
                         highlightIdent(node.name, 'CLASS');
                     }
                     break;
