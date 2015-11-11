@@ -41,7 +41,12 @@ import java.util.Map;
 import java.util.Set;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
+import netbeanstypescript.api.lexer.JsTokenId;
+import netbeanstypescript.api.lexer.LexUtilities;
+import netbeanstypescript.options.OptionsUtils;
 import org.json.simple.JSONObject;
+import org.netbeans.api.lexer.TokenId;
+import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.csl.api.*;
 import org.netbeans.modules.csl.spi.ParserResult;
 import org.openide.filesystems.FileObject;
@@ -90,6 +95,7 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         }
         @Override
         public String getRhsHtml(HtmlFormatter hf) {
+            hf.setMaxLength(OptionsUtils.forLanguage(JsTokenId.javascriptLanguage()).getCodeCompletionItemSignatureWidth());
             if (type == null) {
                 return null;
             }
@@ -140,9 +146,50 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         return seq.subSequence(i, j).toString();
     }
 
+    // CHARS_NO_AUTO_COMPLETE and getAutoQuery from javascript2.editor JsCodeCompletion
+    private static final String CHARS_NO_AUTO_COMPLETE = ";,/+-\\:={}[]()"; //NOI18N
+
     @Override
     public QueryType getAutoQuery(JTextComponent component, String typedText) {
-        return typedText.endsWith(".") ? QueryType.COMPLETION : QueryType.NONE;
+        if (typedText.length() == 0) {
+            return QueryType.NONE;
+        }
+
+        int offset = component.getCaretPosition();
+        TokenSequence<? extends JsTokenId> ts = LexUtilities.getJsTokenSequence(component.getDocument(), offset);
+        if (ts != null) {
+            int diff = ts.move(offset);
+            TokenId currentTokenId = null;
+            if (diff == 0 && ts.movePrevious() || ts.moveNext()) {
+                currentTokenId = ts.token().id();
+            }
+
+            char lastChar = typedText.charAt(typedText.length() - 1);
+            if (currentTokenId == JsTokenId.BLOCK_COMMENT || currentTokenId == JsTokenId.DOC_COMMENT
+                    || currentTokenId == JsTokenId.LINE_COMMENT) {
+                if (lastChar == '@') { //NOI18N
+                    return QueryType.COMPLETION;
+                }
+            } else if (currentTokenId == JsTokenId.STRING && lastChar == '/') {
+                return QueryType.COMPLETION;
+            } else {
+                switch (lastChar) {
+                    case '.': //NOI18N
+                        if (OptionsUtils.forLanguage(JsTokenId.javascriptLanguage()).autoCompletionAfterDot()) {
+                            return QueryType.COMPLETION;
+                        }
+                        break;
+                    default:
+                        if (OptionsUtils.forLanguage(JsTokenId.javascriptLanguage()).autoCompletionFull()) {
+                            if (!Character.isWhitespace(lastChar) && CHARS_NO_AUTO_COMPLETE.indexOf(lastChar) == -1) {
+                                return QueryType.COMPLETION;
+                            }
+                        }
+                        return QueryType.NONE;
+                }
+            }
+        }
+        return QueryType.NONE;
     }
 
     @Override

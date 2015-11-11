@@ -58,7 +58,7 @@ import org.netbeans.modules.csl.api.OffsetRange;
 import org.netbeans.modules.csl.spi.GsfUtilities;
 import netbeanstypescript.api.lexer.JsTokenId;
 import netbeanstypescript.api.lexer.LexUtilities;
-//import module1.options.OptionsUtils;
+import netbeanstypescript.options.OptionsUtils;
 import org.netbeans.spi.editor.typinghooks.TypedTextInterceptor;
 
 /**
@@ -105,8 +105,7 @@ public class JsTypedTextInterceptor implements TypedTextInterceptor {
     }
 
     private boolean isSmartQuotingEnabled() {
-        //return OptionsUtils.forLanguage(language).autoCompletionSmartQuotes();
-        return true;
+        return OptionsUtils.forLanguage(language).autoCompletionSmartQuotes();
     }
 
     @Override

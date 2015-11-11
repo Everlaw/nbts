@@ -52,7 +52,7 @@ import org.netbeans.editor.BaseDocument;
 import org.netbeans.modules.csl.api.EditorOptions;
 import netbeanstypescript.api.lexer.JsTokenId;
 import netbeanstypescript.api.lexer.LexUtilities;
-//import org.netbeans.modules.javascript2.editor.options.OptionsUtils;
+import netbeanstypescript.options.OptionsUtils;
 import org.netbeans.spi.editor.typinghooks.DeletedTextInterceptor;
 
 /**
@@ -83,7 +83,7 @@ public class JsDeletedTextInterceptor implements DeletedTextInterceptor {
     }
 
     private boolean isSmartQuotingEnabled() {
-        return true;//OptionsUtils.forLanguage(language).autoCompletionSmartQuotes();
+        return OptionsUtils.forLanguage(language).autoCompletionSmartQuotes();
     }
 
     @Override
