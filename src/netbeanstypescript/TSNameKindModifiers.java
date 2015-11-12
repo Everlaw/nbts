@@ -40,6 +40,7 @@ package netbeanstypescript;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.logging.Level;
 import javax.swing.ImageIcon;
 import org.json.simple.JSONObject;
 import org.netbeans.modules.csl.api.ElementKind;
@@ -91,7 +92,7 @@ public class TSNameKindModifiers {
             case "alias": break;
             case "const": kind = ElementKind.CONSTANT; break;
             case "let": kind = ElementKind.VARIABLE; break;
-            default: System.out.println("Unknown symbol kind [" + obj.get("kind") + "]");
+            default: TSService.log.log(Level.WARNING, "Unknown symbol kind [{0}]", obj.get("kind"));
         }
 
         // See ScriptElementKindModifier in services/services.ts
@@ -108,7 +109,7 @@ public class TSNameKindModifiers {
                     case "static": modifiers.add(Modifier.STATIC); break;
                     case "abstract": modifiers.add(Modifier.ABSTRACT); break;
                     case "deprecated": modifiers.add(Modifier.DEPRECATED); break;
-                    default: System.out.println("Unknown modifier [" + modifier + "]");
+                    default: TSService.log.log(Level.WARNING, "Unknown modifier [{0}]", modifier);
                 }
             }
         }

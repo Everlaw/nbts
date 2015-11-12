@@ -45,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.prefs.Preferences;
 import org.json.simple.JSONObject;
 import org.netbeans.api.project.FileOwnerQuery;
@@ -141,7 +142,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
         if (! "true".equals(prefs.get("compileOnSave", null))) {
             return;
         }
-        System.out.println("Compiling " + fileObject.getPath());
+        TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
         JSONObject res = TSService.INSTANCE.getEmitOutput(fileObject);
         if (res == null) {
             return;
@@ -152,7 +153,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
             boolean writeBOM = Boolean.TRUE.equals(file.get("writeByteOrderMark"));
             String text = (String) file.get("text");
             Path p = rootPath.resolve(name);
-            System.out.println("Writing " + p);
+            TSService.log.log(Level.FINE, "Writing {0}", p);
             try {
                 Files.createDirectories(p.getParent());
                 try (Writer w = Files.newBufferedWriter(p, StandardCharsets.UTF_8)) {

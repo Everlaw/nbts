@@ -52,6 +52,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.text.Position.Bias;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -87,6 +89,7 @@ import org.openide.util.Lookup;
 public class TSService {
 
     static final TSService INSTANCE = new TSService();
+    static final Logger log = Logger.getLogger(TSService.class.getName());
 
     private static class ExceptionFromJS extends Exception {
         ExceptionFromJS(String msg) { super(msg); }
@@ -119,7 +122,7 @@ public class TSService {
         Map<String, FileObject> builtinLibs = new HashMap<>();
 
         NodeJSProcess() throws Exception {
-            System.out.println("TSService: starting nodejs");
+            log.info("Starting nodejs");
             File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
             // Node installs to /usr/local/bin on OS X, but OS X doesn't put /usr/local/bin in the
             // PATH of applications started from the GUI
@@ -152,22 +155,21 @@ public class TSService {
                 builtinLibs.put(builtinLibPrefix + lib, libObj);
             }
             eval(initLibs.append('\n').toString());
-
-            System.out.println("TSService: nodejs loaded");
         }
 
         final Object eval(String code) throws ParseException, ExceptionFromJS {
             if (error != null) {
                 return null;
             }
-            //System.out.print("OUT[" + code.length() + "]: " + (code.length() > 120 ? code.substring(0, 120) + "...\n" : code));
-            //long t1 = System.currentTimeMillis();
+            log.log(Level.FINER, "OUT[{0}]: {1}", new Object[] {
+                code.length(), code.length() > 120 ? code.substring(0, 120) + "...\n" : code});
+            long t1 = System.currentTimeMillis();
             String s;
             try {
                 stdin.write(code.getBytes());
                 stdin.flush();
                 while ((s = stdout.readLine()) != null && s.charAt(0) == 'L') {
-                    System.out.println(JSONValue.parseWithException(s.substring(1)));
+                    log.fine((String) JSONValue.parseWithException(s.substring(1)));
                 }
             } catch (Exception e) {
                 error = "Error communicating with Node.js process."
@@ -175,8 +177,9 @@ public class TSService {
                         + "\n\n" + e;
                 return null;
             }
-            //System.out.println("IN[" + s.length() + "," + (System.currentTimeMillis() - t1) + "]: "
-            //        + (s.length() > 120 ? s.substring(0, 120) + "..." : s));
+            log.log(Level.FINER, "IN[{0},{1}]: {2}\n", new Object[] {
+                s.length(), System.currentTimeMillis() - t1,
+                s.length() > 120 ? s.substring(0, 120) + "..." : s});
             if (s.charAt(0) == 'X') {
                 throw new ExceptionFromJS((String) JSONValue.parseWithException(s.substring(1)));
             } else if (s.equals("undefined")) {
@@ -220,7 +223,7 @@ public class TSService {
             try {
                 return nodejs.eval(sb.toString());
             } catch (Exception e) {
-                e.printStackTrace();
+                log.log(Level.INFO, "Exception in nodejs.eval", e);
                 return null;
             }
         }
@@ -312,7 +315,7 @@ public class TSService {
             JSONArray errors = (JSONArray) diags.get(fileName);
             Indexable i = program.indexables.get(fileName);
             if (i == null) {
-                System.out.println(fileName + ": No indexable!");
+                log.log(Level.WARNING, "{0}: No indexable!", fileName);
                 continue;
             }
             ErrorsCache.setErrors(context.getRootURI(), i, errors, new Convertor<JSONObject>() {
@@ -358,7 +361,7 @@ public class TSService {
         }
 
         if (programs.isEmpty()) {
-            System.out.println("TSService: no programs left; shutting down nodejs");
+            log.info("No programs left; shutting down nodejs");
             try {
                 nodejs.close();
             } catch (IOException e) {}
