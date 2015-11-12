@@ -28,3 +28,10 @@ The version number of this plugin reflects the version of TypeScript it incorpor
 ### Contributing
 
 We are happy to receive Pull Requests. If you are planning a big change, it's probably best to discuss it as an [Issue](https://github.com/Everlaw/nbts/issues) first.
+
+### Building
+
+To build the plugin yourself, there are a couple of things that must be done first:
+* Edit this line in `build.xml` to point to where you have TypeScript installed:  
+  `<property name="typescript" value="${env.HOME}/TypeScript-1.6.2"/>`
+* Open the project in NetBeans. (You can either build in NetBeans or run `ant` from the command line, but either way you must open the project first to create the `nbproject/private` files.)

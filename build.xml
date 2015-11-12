@@ -3,7 +3,7 @@
 <!-- for some information on what you could do (e.g. targets to override). -->
 <!-- If you delete this file and reopen the project it will be recreated. -->
 <project basedir="." default="netbeans" name="netbeanstypescript">
-    <description>Builds, tests, and runs the project module1.</description>
+    <description>Builds, tests, and runs the project netbeanstypescript.</description>
     <import file="nbproject/build-impl.xml"/>
 
     <property environment="env"/>
@@ -21,8 +21,7 @@
     </target>
     <target name="netbeans-extra" depends="compile-ts-services-check" unless="compile-ts-services.uptodate">
         <echo>Building nbts-services.js</echo>
-        <exec executable="nodejs" failonerror="true">
-            <arg value="${typescript}/lib/tsc.js"/>
+        <exec executable="${typescript}/bin/tsc" failonerror="true">
             <arg value="ts/main.ts"/>
             <arg value="--removeComments"/>
             <arg value="--out"/>
