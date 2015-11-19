@@ -369,14 +369,9 @@ public class TSService {
         }
     }
 
-    synchronized CodeCompletionResult getCompletions(FileObject fileObj, int caretOffset,
+    CodeCompletionResult getCompletions(FileObject fileObj, int caretOffset,
             String prefix, boolean isPrefixMatch, boolean caseSensitive) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return DefaultCompletionResult.NONE;
-        }
-
-        JSONObject info = (JSONObject) fd.program.call("getCompletions", fd.relPath, caretOffset,
+        JSONObject info = (JSONObject) call("getCompletions", fileObj, caretOffset,
                 prefix, isPrefixMatch, caseSensitive);
         if (info == null) {
             return CodeCompletionResult.NONE;
@@ -393,12 +388,8 @@ public class TSService {
         return new DefaultCompletionResult(lst, false);
     }
 
-    synchronized ElementHandle getCompletionEntryDetails(FileObject fileObj, int caretOffset, String name) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        JSONObject info = (JSONObject) fd.program.call("getCompletionEntryDetails", fd.relPath, caretOffset, name);
+    ElementHandle getCompletionEntryDetails(FileObject fileObj, int caretOffset, String name) {
+        JSONObject info = (JSONObject) call("getCompletionEntryDetails", fileObj, caretOffset, name);
         return info == null ? null : new TSElementHandle(OffsetRange.NONE, info);
     }
 
@@ -439,21 +430,36 @@ public class TSService {
         return errors;
     }
 
-    synchronized JSONObject getQuickInfo(FileObject fileObj, int caretOffset) {
+    synchronized Object call(String method, FileObject fileObj, Object... args) {
         FileData fd = allFiles.get(fileObj);
         if (fd == null) {
             return null;
         }
-        return (JSONObject) fd.program.call("getQuickInfoAtPosition", fd.relPath, caretOffset);
+        Object[] filenameAndArgs = new Object[args.length + 1];
+        filenameAndArgs[0] = fd.relPath;
+        System.arraycopy(args, 0, filenameAndArgs, 1, args.length);
+        Object ret = fd.program.call(method, filenameAndArgs);
+        // Translate file names back to file objects
+        if (ret instanceof JSONArray) {
+            for (Object item: (JSONArray) ret) {
+                if (item instanceof JSONObject) {
+                    JSONObject obj = (JSONObject) item;
+                    Object fileName = obj.get("fileName");
+                    if (fileName instanceof String) {
+                        obj.put("fileObject", fd.program.getFile((String) fileName));
+                    }
+                }
+            }
+        }
+        return ret;
     }
 
-    synchronized DeclarationLocation findDeclaration(FileObject fileObj, int caretOffset) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return DeclarationLocation.NONE;
-        }
+    JSONObject getQuickInfo(FileObject fileObj, int caretOffset) {
+        return (JSONObject) call("getQuickInfoAtPosition", fileObj, caretOffset);
+    }
 
-        JSONObject quickInfo = (JSONObject) fd.program.call("getQuickInfoAtPosition", fd.relPath, caretOffset);
+    DeclarationLocation findDeclaration(FileObject fileObj, int caretOffset) {
+        JSONObject quickInfo = (JSONObject) call("getQuickInfoAtPosition", fileObj, caretOffset);
         if (quickInfo == null) {
             return DeclarationLocation.NONE;
         }
@@ -463,14 +469,13 @@ public class TSService {
 
         DeclarationLocation allLocs = new DeclarationLocation(fileObj, caretOffset, eh);
 
-        JSONArray defs = (JSONArray) fd.program.call("getDefsAtPosition", fd.relPath, caretOffset);
+        JSONArray defs = (JSONArray) call("getDefsAtPosition", fileObj, caretOffset);
         if (defs == null) {
             return allLocs;
         }
         for (final JSONObject def: (List<JSONObject>) defs) {
             final String destFileName = (String) def.get("fileName");
-
-            FileObject destFileObj = fd.program.getFile(destFileName);
+            FileObject destFileObj = (FileObject) def.get("fileObject");
             int destOffset = ((Number) def.get("start")).intValue();
             final DeclarationLocation declLoc = new DeclarationLocation(destFileObj, destOffset, eh);
             if (defs.size() == 1) {
@@ -506,12 +511,8 @@ public class TSService {
         return allLocs;
     }
 
-    synchronized Map<OffsetRange, ColoringAttributes> findOccurrences(FileObject fileObj, int caretOffset) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return Collections.emptyMap();
-        }
-        JSONArray occurrences = (JSONArray) fd.program.call("getOccurrencesAtPosition", fd.relPath, caretOffset);
+    Map<OffsetRange, ColoringAttributes> findOccurrences(FileObject fileObj, int caretOffset) {
+        JSONArray occurrences = (JSONArray) call("getOccurrencesAtPosition", fileObj, caretOffset);
         if (occurrences == null) {
             return Collections.emptyMap();
         }
@@ -525,28 +526,16 @@ public class TSService {
         return ranges;
     }
 
-    synchronized Object getSemanticHighlights(FileObject fileObj) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        return fd.program.call("getNetbeansSemanticHighlights", fd.relPath);
+    Object getSemanticHighlights(FileObject fileObj) {
+        return call("getNetbeansSemanticHighlights", fileObj);
     }
 
-    synchronized Object getStructureItems(FileObject fileObj) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        return fd.program.call("getStructureItems", fd.relPath);
+    Object getStructureItems(FileObject fileObj) {
+        return call("getStructureItems", fileObj);
     }
 
-    synchronized List<OffsetRange> getFolds(FileObject fileObj) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return Collections.emptyList();
-        }
-        JSONArray arr = (JSONArray) fd.program.call("getFolds", fd.relPath);
+    List<OffsetRange> getFolds(FileObject fileObj) {
+        JSONArray arr = (JSONArray) call("getFolds", fileObj);
         if (arr == null) {
             return Collections.emptyList();
         }
@@ -559,28 +548,20 @@ public class TSService {
         return ranges;
     }
 
-    synchronized List<RefactoringElementImplementation> getReferencesAtPosition(FileObject fileObj, int position) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        JSONArray arr = (JSONArray) fd.program.call("getReferencesAtPosition", fd.relPath, position);
+    List<RefactoringElementImplementation> getReferencesAtPosition(FileObject fileObj, int position) {
+        JSONArray arr = (JSONArray) call("getReferencesAtPosition", fileObj, position);
         if (arr == null) {
             return null;
         }
         List<RefactoringElementImplementation> uses = new ArrayList<>();
         for (JSONObject use: (List<JSONObject>) arr) {
-            String fileName = (String) use.get("fileName");
             final int start = ((Number) use.get("start")).intValue();
             final int end = ((Number) use.get("end")).intValue();
 
             final int lineStart = ((Number) use.get("lineStart")).intValue();
             final String lineText = (String) use.get("lineText");
 
-            final FileObject useFileObj = fd.program.getFile(fileName);
-            if (useFileObj == null) {
-                continue;
-            }
+            final FileObject useFileObj = (FileObject) use.get("fileObject");
 
             CloneableEditorSupport ces = GsfUtilities.findCloneableEditorSupport(useFileObj);
             PositionRef ref1 = ces.createPositionRef(start, Bias.Forward);
@@ -613,38 +594,26 @@ public class TSService {
         return uses;
     }
 
-    synchronized List<JSONObject> getFormattingEdits(FileObject fileObj, int start, int end,
+    List<JSONObject> getFormattingEdits(FileObject fileObj, int start, int end,
             int indent, int tabSize, boolean expandTabs) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return Collections.emptyList();
-        }
-        Object res = fd.program.call("getFormattingEdits", fd.relPath, start, end,
+        Object res = call("getFormattingEdits", fileObj, start, end,
                 indent, tabSize, expandTabs);
         return res != null ? (List<JSONObject>) res : Collections.<JSONObject>emptyList();
     }
 
-    synchronized JSONObject getRenameInfo(FileObject fileObj, int position) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        return (JSONObject) fd.program.call("getRenameInfo", fd.relPath, position);
+    JSONObject getRenameInfo(FileObject fileObj, int position) {
+        return (JSONObject) call("getRenameInfo", fileObj, position);
     }
 
-    synchronized ModificationResult findRenameLocations(FileObject fileObj, int position,
+    ModificationResult findRenameLocations(FileObject fileObj, int position,
             boolean findInStrings, boolean findInComments, String oldText, String newText) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        JSONArray arr = (JSONArray) fd.program.call("findRenameLocations", fd.relPath, position, findInStrings, findInComments);
+        JSONArray arr = (JSONArray) call("findRenameLocations", fileObj, position, findInStrings, findInComments);
         if (arr == null) {
             return null;
         }
         ModificationResult result = new ModificationResult();
         for (JSONObject loc: (List<JSONObject>) arr) {
-            FileObject locFileObj = fd.program.getFile((String) loc.get("fileName"));
+            FileObject locFileObj = (FileObject) loc.get("fileObject");
             CloneableEditorSupport ces = GsfUtilities.findCloneableEditorSupport(locFileObj);
             result.addDifferences(locFileObj, Collections.singletonList(new ModificationResult.Difference(
                     ModificationResult.Difference.Kind.CHANGE,
@@ -655,18 +624,14 @@ public class TSService {
         return result;
     }
 
-    synchronized Set<OffsetRange> getInstantRenameRegions(FileObject fileObj, int position) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        JSONArray arr = (JSONArray) fd.program.call("findRenameLocations", fd.relPath, position, false, false);
+    Set<OffsetRange> getInstantRenameRegions(FileObject fileObj, int position) {
+        JSONArray arr = (JSONArray) call("findRenameLocations", fileObj, position, false, false);
         if (arr == null) {
             return null;
         }
         Set<OffsetRange> set = new HashSet<>();
         for (JSONObject loc: (List<JSONObject>) arr) {
-            if (fd.program.getFile((String) loc.get("fileName")) != fileObj) {
+            if (loc.get("fileObject") != fileObj) {
                 // There's a reference in another file; can't instant rename. Return null so that
                 // InstantRenameAction will start a refactoring rename instead.
                 return null;
@@ -678,11 +643,7 @@ public class TSService {
         return set;
     }
 
-    synchronized JSONObject getEmitOutput(FileObject fileObj) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        return (JSONObject) fd.program.call("getEmitOutput", fd.relPath);
+    JSONObject getEmitOutput(FileObject fileObj) {
+        return (JSONObject) call("getEmitOutput", fileObj);
     }
 }
