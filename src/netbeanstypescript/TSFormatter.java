@@ -57,17 +57,20 @@ public class TSFormatter implements Formatter {
     @Override
     public void reformat(Context context, ParserResult pr) {
         final BaseDocument doc = (BaseDocument) context.document();
-        final List<JSONObject> edits = TSService.INSTANCE.getFormattingEdits(
+        final Object edits = TSService.call("getFormattingEdits",
                 GsfUtilities.findFileObject(doc), context.startOffset(), context.endOffset(),
                 IndentUtils.indentLevelSize(doc),
                 IndentUtils.tabSize(doc),
                 IndentUtils.isExpandTabs(doc));
+        if (edits == null) {
+            return;
+        }
         doc.runAtomic(new Runnable() {
             @Override
             public void run() {
                 try {
                     int sizeChange = 0;
-                    for (JSONObject edit: edits) {
+                    for (JSONObject edit: (List<JSONObject>) edits) {
                         int start = ((Number) edit.get("s")).intValue() + sizeChange;
                         int length = ((Number) edit.get("l")).intValue();
                         String newText = (String) edit.get("t");

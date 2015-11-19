@@ -39,8 +39,9 @@ package netbeanstypescript;
 
 import java.awt.Component;
 import java.awt.Dimension;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
@@ -49,9 +50,13 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.event.ChangeListener;
 import javax.swing.text.Document;
+import javax.swing.text.Position;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.netbeans.lib.editor.util.StringEscapeUtils;
+import org.netbeans.modules.csl.api.DeclarationFinder;
 import org.netbeans.modules.csl.api.ElementHandle;
+import org.netbeans.modules.csl.api.OffsetRange;
 import org.netbeans.modules.csl.spi.GsfUtilities;
 import org.netbeans.modules.csl.spi.support.ModificationResult;
 import org.netbeans.modules.refactoring.api.*;
@@ -62,7 +67,9 @@ import org.openide.NotifyDescriptor;
 import org.openide.awt.Mnemonics;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
+import org.openide.text.CloneableEditorSupport;
 import org.openide.text.PositionBounds;
+import org.openide.text.PositionRef;
 import org.openide.util.HelpCtx;
 import org.openide.util.Lookup;
 import org.openide.util.lookup.ServiceProvider;
@@ -91,8 +98,9 @@ public class TSRefactoring extends ActionsImplementationProvider {
     public void doFindUsages(Lookup lookup) {
         final TSWhereUsedQuery query = new TSWhereUsedQuery(lookup.lookup(EditorCookie.class));
 
-        final ElementHandle decl = TSService.INSTANCE.findDeclaration(query.fileObj, query.caretPosition).getElement();
-        final String name = decl != null ? decl.getName() : "(unknown symbol)";
+        JSONObject quickInfo = (JSONObject) TSService.call("getQuickInfoAtPosition",
+                query.fileObj, query.caretPosition);
+        final String name = quickInfo != null ? (String) quickInfo.get("name") : "(unknown symbol)";
 
         UI.openRefactoringUI(new RefactoringUI() {
             @Override public String getName() { return "Usages of " + name; }
@@ -128,9 +136,8 @@ public class TSRefactoring extends ActionsImplementationProvider {
             @Override public Problem fastCheckParameters() { return null; }
             @Override public void cancelRequest() {}
             @Override public Problem prepare(RefactoringElementsBag refactoringElements) {
-                Collection<RefactoringElementImplementation> uses =
-                        TSService.INSTANCE.getReferencesAtPosition(fileObj, caretPosition);
-                if (uses == null) {
+                Object arr = TSService.call("getReferencesAtPosition", fileObj, caretPosition);
+                if (arr == null) {
                     // Doesn't work without dialog?
                     //return new Problem(true, "Could not find symbol at " + fileObj + " offset " + caretPosition);
                     refactoringElements.add(TSWhereUsedQuery.this, new SimpleRefactoringElementImplementation() {
@@ -144,6 +151,44 @@ public class TSRefactoring extends ActionsImplementationProvider {
                         @Override public PositionBounds getPosition() { return null; }
                     });
                     return null;
+                }
+                List<RefactoringElementImplementation> uses = new ArrayList<>();
+                for (JSONObject use: (List<JSONObject>) arr) {
+                    final int start = ((Number) use.get("start")).intValue();
+                    final int end = ((Number) use.get("end")).intValue();
+
+                    final int lineStart = ((Number) use.get("lineStart")).intValue();
+                    final String lineText = (String) use.get("lineText");
+
+                    final FileObject useFileObj = (FileObject) use.get("fileObject");
+
+                    CloneableEditorSupport ces = GsfUtilities.findCloneableEditorSupport(useFileObj);
+                    PositionRef ref1 = ces.createPositionRef(start, Position.Bias.Forward);
+                    PositionRef ref2 = ces.createPositionRef(end, Position.Bias.Forward);
+                    final PositionBounds bounds = new PositionBounds(ref1, ref2);
+
+                    uses.add(new SimpleRefactoringElementImplementation() {
+                        @Override
+                        public String getText() { return toString(); }
+                        @Override
+                        public String getDisplayText() {
+                            StringBuilder sb = new StringBuilder();
+                            sb.append(StringEscapeUtils.escapeHtml(lineText.substring(0, start - lineStart)));
+                            sb.append("<b>");
+                            sb.append(StringEscapeUtils.escapeHtml(lineText.substring(start - lineStart, end - lineStart)));
+                            sb.append("</b>");
+                            sb.append(StringEscapeUtils.escapeHtml(lineText.substring(end - lineStart)));
+                            return sb.toString();
+                        }
+                        @Override
+                        public void performChange() {}
+                        @Override
+                        public Lookup getLookup() { return Lookup.EMPTY; }
+                        @Override
+                        public FileObject getParentFile() { return useFileObj; }
+                        @Override
+                        public PositionBounds getPosition() { return bounds; }
+                    });
                 }
                 refactoringElements.addAll(TSWhereUsedQuery.this, uses);
                 return null;
@@ -162,7 +207,7 @@ public class TSRefactoring extends ActionsImplementationProvider {
         final FileObject fileObj = GsfUtilities.findFileObject(ec.getDocument());
         final int position = ec.getOpenedPanes()[0].getCaretPosition();
 
-        final JSONObject obj = TSService.INSTANCE.getRenameInfo(fileObj, position);
+        final JSONObject obj = (JSONObject) TSService.call("getRenameInfo", fileObj, position);
         if (obj == null) {
             return;
         } else if (! (Boolean)obj.get("canRename")) {
@@ -248,12 +293,20 @@ public class TSRefactoring extends ActionsImplementationProvider {
             @Override public Problem fastCheckParameters() { return null; }
             @Override public void cancelRequest() {}
             @Override public Problem prepare(RefactoringElementsBag refactoringElements) {
-                ModificationResult modificationResult = TSService.INSTANCE.findRenameLocations(
-                        fileObj, position,
-                        panel.findInStrings.isSelected(), panel.findInComments.isSelected(),
-                        panel.oldName, panel.newName.getText());
-                if (modificationResult == null) {
+                JSONArray arr = (JSONArray) TSService.call("findRenameLocations", fileObj, position,
+                        panel.findInStrings.isSelected(), panel.findInComments.isSelected());
+                if (arr == null) {
                     return new Problem(true, "findRenameLocations returned null");
+                }
+                ModificationResult modificationResult = new ModificationResult();
+                for (JSONObject loc: (List<JSONObject>) arr) {
+                    FileObject locFileObj = (FileObject) loc.get("fileObject");
+                    CloneableEditorSupport ces = GsfUtilities.findCloneableEditorSupport(locFileObj);
+                    modificationResult.addDifferences(locFileObj, Collections.singletonList(new ModificationResult.Difference(
+                            ModificationResult.Difference.Kind.CHANGE,
+                            ces.createPositionRef(((Number) loc.get("start")).intValue(), Position.Bias.Forward),
+                            ces.createPositionRef(((Number) loc.get("end")).intValue(), Position.Bias.Forward),
+                            panel.oldName, panel.newName.getText())));
                 }
                 refactoringElements.registerTransaction(new RefactoringCommit(Collections.singletonList(modificationResult)));
                 for (FileObject fo: modificationResult.getModifiedFileObjects()) {

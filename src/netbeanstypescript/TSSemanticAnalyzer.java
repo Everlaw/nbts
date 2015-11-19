@@ -66,7 +66,7 @@ public class TSSemanticAnalyzer extends SemanticAnalyzer<Parser.Result> {
 
     @Override
     public void run(Parser.Result t, SchedulerEvent se) {
-        Object highlights = TSService.INSTANCE.getSemanticHighlights(
+        Object highlights = TSService.call("getSemanticHighlights",
                 t.getSnapshot().getSource().getFileObject());
         if (highlights == null) {
             result = Collections.emptyMap();

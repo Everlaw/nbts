@@ -37,6 +37,8 @@
  */
 package netbeanstypescript;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.swing.text.Document;
@@ -44,10 +46,12 @@ import javax.swing.text.JTextComponent;
 import netbeanstypescript.api.lexer.JsTokenId;
 import netbeanstypescript.api.lexer.LexUtilities;
 import netbeanstypescript.options.OptionsUtils;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.netbeans.api.lexer.TokenId;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.csl.api.*;
+import org.netbeans.modules.csl.spi.DefaultCompletionResult;
 import org.netbeans.modules.csl.spi.ParserResult;
 import org.openide.filesystems.FileObject;
 
@@ -76,7 +80,8 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         public int getAnchorOffset() { return anchorOffset; }
         @Override
         public ElementHandle getElement() {
-            return TSService.INSTANCE.getCompletionEntryDetails(fileObj, caretOffset, name);
+            Object info = TSService.call("getCompletionEntryDetails", fileObj, caretOffset, name);
+            return info == null ? null : new TSElementHandle(OffsetRange.NONE, (JSONObject) info);
         }
         @Override
         public String getInsertPrefix() { return name; }
@@ -116,10 +121,24 @@ public class TSCodeCompletion implements CodeCompletionHandler {
 
     @Override
     public CodeCompletionResult complete(CodeCompletionContext ccc) {
-        return TSService.INSTANCE.getCompletions(
-                ccc.getParserResult().getSnapshot().getSource().getFileObject(),
-                ccc.getCaretOffset(),
-                ccc.getPrefix(), ccc.isPrefixMatch(), ccc.isCaseSensitive());
+        FileObject fileObj = ccc.getParserResult().getSnapshot().getSource().getFileObject();
+        int caretOffset = ccc.getCaretOffset();
+        String prefix = ccc.getPrefix();
+        JSONObject info = (JSONObject) TSService.call("getCompletions", fileObj, caretOffset,
+                prefix, ccc.isPrefixMatch(), ccc.isCaseSensitive());
+        if (info == null) {
+            return CodeCompletionResult.NONE;
+        }
+
+        List<CompletionProposal> lst = new ArrayList<>();
+        for (Object ent: (JSONArray) info.get("entries")) {
+            lst.add(new TSCodeCompletion.TSCompletionProposal(
+                    fileObj,
+                    caretOffset,
+                    caretOffset - prefix.length(),
+                    (JSONObject) ent));
+        }
+        return new DefaultCompletionResult(lst, false);
     }
 
     @Override

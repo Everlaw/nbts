@@ -37,7 +37,10 @@
  */
 package netbeanstypescript;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import org.json.simple.JSONObject;
 import org.netbeans.modules.csl.api.InstantRenamer;
 import org.netbeans.modules.csl.api.OffsetRange;
 import org.netbeans.modules.csl.spi.ParserResult;
@@ -57,6 +60,21 @@ public class TSInstantRenamer implements InstantRenamer {
     @Override
     public Set<OffsetRange> getRenameRegions(ParserResult info, int caretOffset) {
         FileObject file = info.getSnapshot().getSource().getFileObject();
-        return TSService.INSTANCE.getInstantRenameRegions(file, caretOffset);
+        Object arr = TSService.call("findRenameLocations", file, caretOffset, false, false);
+        if (arr == null) {
+            return null;
+        }
+        Set<OffsetRange> set = new HashSet<>();
+        for (JSONObject loc: (List<JSONObject>) arr) {
+            if (loc.get("fileObject") != file) {
+                // There's a reference in another file; can't instant rename. Return null so that
+                // InstantRenameAction will start a refactoring rename instead.
+                return null;
+            }
+            set.add(new OffsetRange(
+                    ((Number) loc.get("start")).intValue(),
+                    ((Number) loc.get("end")).intValue()));
+        }
+        return set;
     }
 }

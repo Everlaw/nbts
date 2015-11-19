@@ -57,11 +57,11 @@ public class TSParser extends Parser {
 
     @Override
     public void parse(Snapshot snapshot, Task task, SourceModificationEvent event) throws ParseException {
-        TSService.INSTANCE.updateFile(snapshot);
+        TSService.updateFile(snapshot);
         result = new ParserResult(snapshot) {
             @Override
             public List<? extends Error> getDiagnostics() {
-                return TSService.INSTANCE.getDiagnostics(getSnapshot());
+                return TSService.getDiagnostics(getSnapshot());
             }
 
             @Override

@@ -83,12 +83,12 @@ public class TSIndexerFactory extends CustomIndexerFactory {
                     FileObject fo = context.getRoot().getFileObject(indxbl.getRelativePath());
                     if (fo == null) continue;
                     if ("text/typescript".equals(FileUtil.getMIMEType(fo))) {
-                        TSService.INSTANCE.addFile(Source.create(fo).createSnapshot(), indxbl, context);
+                        TSService.addFile(Source.create(fo).createSnapshot(), indxbl, context);
                         if (! context.isAllFilesIndexing() && ! context.checkForEditorModifications()) {
                             compileIfEnabled(context.getRoot(), fo);
                         }
                     } else if (fo.getNameExt().equals("tsconfig.json")) {
-                        TSService.INSTANCE.addFile(Source.create(fo).createSnapshot(), indxbl, context);
+                        TSService.addFile(Source.create(fo).createSnapshot(), indxbl, context);
                     }
                 }
             }
@@ -97,7 +97,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
 
     @Override
     public void scanFinished(Context context) {
-        TSService.INSTANCE.scanFinished(context);
+        TSService.scanFinished(context);
     }
 
     @Override
@@ -108,7 +108,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     @Override
     public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
         for (Indexable i: deleted) {
-            TSService.INSTANCE.removeFile(i, context);
+            TSService.removeFile(i, context);
         }
     }
 
@@ -119,7 +119,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     @Override
     public void rootsRemoved(Iterable<? extends URL> removedRoots) {
         for (URL url: removedRoots) {
-            TSService.INSTANCE.removeProgram(url);
+            TSService.removeProgram(url);
         }
     }
 
@@ -143,7 +143,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
             return;
         }
         TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
-        JSONObject res = TSService.INSTANCE.getEmitOutput(fileObject);
+        JSONObject res = (JSONObject) TSService.call("getEmitOutput", fileObject);
         if (res == null) {
             return;
         }

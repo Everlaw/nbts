@@ -209,7 +209,7 @@ class Program {
             end: occ.textSpan.start + occ.textSpan.length
         }));
     }
-    getNetbeansSemanticHighlights(fileName: string) {
+    getSemanticHighlights(fileName: string) {
         var program = this.service.getProgram();
         var sourceFile = program.getSourceFile(ts.normalizeSlashes(fileName));
         var typeInfoResolver = program.getTypeChecker();

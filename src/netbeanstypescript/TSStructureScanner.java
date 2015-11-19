@@ -153,14 +153,23 @@ public class TSStructureScanner implements StructureScanner {
 
     @Override
     public List<? extends StructureItem> scan(ParserResult pr) {
-        return convertStructureItems(null, TSService.INSTANCE.getStructureItems(
+        return convertStructureItems(null, TSService.call("getStructureItems",
                 pr.getSnapshot().getSource().getFileObject()));
     }
 
     @Override
     public Map<String, List<OffsetRange>> folds(ParserResult pr) {
-        return Collections.singletonMap("codeblocks", TSService.INSTANCE.getFolds(
-                pr.getSnapshot().getSource().getFileObject()));
+        Object arr = TSService.call("getFolds", pr.getSnapshot().getSource().getFileObject());
+        if (arr == null) {
+            return Collections.emptyMap();
+        }
+        List<OffsetRange> ranges = new ArrayList<>();
+        for (JSONObject span: (List<JSONObject>) arr) {
+            ranges.add(new OffsetRange(
+                ((Number) span.get("start")).intValue(),
+                ((Number) span.get("end")).intValue()));
+        }
+        return Collections.singletonMap("codeblocks", ranges);
     }
 
     @Override

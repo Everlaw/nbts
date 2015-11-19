@@ -37,7 +37,10 @@
  */
 package netbeanstypescript;
 
+import java.util.HashMap;
 import java.util.Map;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.netbeans.modules.csl.api.ColoringAttributes;
 import org.netbeans.modules.csl.api.OccurrencesFinder;
 import org.netbeans.modules.csl.api.OffsetRange;
@@ -66,8 +69,18 @@ public class TSOccurrencesFinder extends OccurrencesFinder<Parser.Result> {
 
     @Override
     public void run(Parser.Result t, SchedulerEvent se) {
-        result = TSService.INSTANCE.findOccurrences(
+        Object occurrences = TSService.call("getOccurrencesAtPosition",
                 t.getSnapshot().getSource().getFileObject(), caretPosition);
+        Map<OffsetRange, ColoringAttributes> ranges = new HashMap<>();
+        if (occurrences != null) {
+            for (Object o: (JSONArray) occurrences) {
+                JSONObject occ = (JSONObject) o;
+                int start = ((Number) occ.get("start")).intValue();
+                int end = ((Number) occ.get("end")).intValue();
+                ranges.put(new OffsetRange(start, end), ColoringAttributes.MARK_OCCURRENCES);
+            }
+        }
+        result = ranges;
     }
 
     @Override
