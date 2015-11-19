@@ -148,13 +148,6 @@ class Program {
         }
         return errs;
     }
-    getAllDiagnostics() {
-        var errs: any = {};
-        for (var fileName in this.host.files) {
-            errs[fileName] = this.getDiagnostics(fileName);
-        }
-        return errs;
-    }
     getCompletions(fileName: string, position: number, prefix: string, isPrefixMatch: boolean, caseSensitive: boolean) {
         var service = this.service;
         var info = service.getCompletionsAtPosition(fileName, position);

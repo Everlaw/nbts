@@ -49,7 +49,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
@@ -58,6 +57,8 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 import org.json.simple.parser.ParseException;
+import org.netbeans.api.progress.ProgressHandle;
+import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.modules.csl.api.Severity;
 import org.netbeans.modules.csl.spi.DefaultError;
 import org.netbeans.modules.parsing.api.Snapshot;
@@ -69,6 +70,7 @@ import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.URLMapper;
 import org.openide.modules.InstalledFileLocator;
+import org.openide.util.RequestProcessor;
 
 /**
  * 
@@ -77,6 +79,7 @@ import org.openide.modules.InstalledFileLocator;
 public class TSService {
 
     static final Logger log = Logger.getLogger(TSService.class.getName());
+    static final RequestProcessor RP = new RequestProcessor("TSService", 1, true);
 
     private static class ExceptionFromJS extends Exception {
         ExceptionFromJS(String msg) { super(msg); }
@@ -196,6 +199,7 @@ public class TSService {
         final Map<String, FileObject> files = new HashMap<>();
         final Map<String, Indexable> indexables = new HashMap<>();
         boolean needErrorsUpdate;
+        Object currentErrorsUpdate;
 
         ProgramData() throws Exception {
             progVar = "p" + nodejs.nextProgId++;
@@ -222,11 +226,11 @@ public class TSService {
         }
 
         final void setFileSnapshot(String relPath, Indexable indexable, Snapshot s, boolean modified) {
-            needErrorsUpdate = true;
             call("updateFile", relPath, s.getText(), modified);
             files.put(relPath, s.getSource().getFileObject());
             if (indexable != null) {
                 indexables.put(relPath, indexable);
+                needErrorsUpdate = true;
             }
         }
 
@@ -298,49 +302,76 @@ public class TSService {
         }
     }
 
-    static void scanFinished(Context context) {
+    static final Convertor<JSONObject> errorConvertor = new Convertor<JSONObject>() {
+        @Override
+        public ErrorsCache.ErrorKind getKind(JSONObject err) {
+            int category = ((Number) err.get("category")).intValue();
+            return category == 0 ? ErrorsCache.ErrorKind.WARNING
+                                 : ErrorsCache.ErrorKind.ERROR;
+        }
+        @Override
+        public int getLineNumber(JSONObject err) {
+            return ((Number) err.get("line")).intValue();
+        }
+        @Override
+        public String getMessage(JSONObject err) {
+            return (String) err.get("messageText");
+        }
+    };
+
+    static void updateErrors(final URL rootURI) {
+        final ProgramData program;
+        final Object currentUpdate;
+        final Indexable[] files;
         lock.lock();
         try {
-            ProgramData program = programs.get(context.getRootURI());
+            program = programs.get(rootURI);
             if (program == null || ! program.needErrorsUpdate) {
                 return;
             }
             program.needErrorsUpdate = false;
-            // TODO: this is slow and locks out other TSService usage for too long in big projects
-            JSONObject diags = (JSONObject) program.call("getAllDiagnostics");
-            if (diags == null) {
-                return;
-            }
-            for (String fileName: (Set<String>) diags.keySet()) {
-                JSONArray errors = (JSONArray) diags.get(fileName);
-                Indexable i = program.indexables.get(fileName);
-                if (i == null) {
-                    log.log(Level.WARNING, "{0}: No indexable!", fileName);
-                    continue;
-                }
-                ErrorsCache.setErrors(context.getRootURI(), i, errors, new Convertor<JSONObject>() {
-                    @Override
-                    public ErrorsCache.ErrorKind getKind(JSONObject err) {
-                        int category = ((Number) err.get("category")).intValue();
-                        if (category == 0) {
-                            return ErrorsCache.ErrorKind.WARNING;
-                        } else {
-                            return ErrorsCache.ErrorKind.ERROR;
-                        }
-                    }
-                    @Override
-                    public int getLineNumber(JSONObject err) {
-                        return ((Number) err.get("line")).intValue();
-                    }
-                    @Override
-                    public String getMessage(JSONObject err) {
-                        return (String) err.get("messageText");
-                    }
-                });
-            }
+            program.currentErrorsUpdate = currentUpdate = new Object();
+            files = program.indexables.values().toArray(new Indexable[0]);
         } finally {
             lock.unlock();
         }
+        new Runnable() {
+            RequestProcessor.Task task = RP.create(this);
+            ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript error checking", task);
+            @Override
+            public void run() {
+                progress.start(files.length);
+                try {
+                    long t1 = System.currentTimeMillis();
+                    for (int i = 0; i < files.length; i++) {
+                        Indexable indexable = files[i];
+                        String fileName = indexable.getRelativePath();
+                        progress.progress(fileName, i);
+                        if (fileName.endsWith(".json")) {
+                            continue;
+                        }
+                        lock.lockInterruptibly();
+                        try {
+                            if (program.currentErrorsUpdate != currentUpdate) {
+                                return; // this task has been superseded
+                            }
+                            JSONArray errors = (JSONArray) program.call("getDiagnostics", fileName);
+                            if (errors != null) {
+                                ErrorsCache.setErrors(rootURI, indexable, errors, errorConvertor);
+                            }
+                        } finally {
+                            lock.unlock();
+                        }
+                    }
+                    log.log(Level.FINE, "updateErrors for {0} completed in {1}ms",
+                            new Object[] { rootURI, System.currentTimeMillis() - t1 });
+                } catch (InterruptedException e) {
+                    log.log(Level.INFO, "updateErrors for {0} cancelled by user", rootURI);
+                } finally {
+                    progress.finish();
+                }
+            }
+        }.task.schedule(0);
     }
 
     static void removeProgram(URL rootURL) {
@@ -350,6 +381,7 @@ public class TSService {
             if (program == null) {
                 return;
             }
+            program.currentErrorsUpdate = null; // stop any updateErrors task
 
             Iterator<FileData> iter = allFiles.values().iterator();
             while (iter.hasNext()) {
