@@ -50,6 +50,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.json.simple.JSONArray;
@@ -98,6 +100,14 @@ public class TSService {
         }
         sb.append('"');
     }
+
+    // All access to the TSService state below should be done with this lock acquired. This lock
+    // has a fair ordering policy so error checking won't starve other user actions.
+    private static final Lock lock = new ReentrantLock(true);
+
+    private static NodeJSProcess nodejs = null;
+    private static final Map<URL, ProgramData> programs = new HashMap<>();
+    private static final Map<FileObject, FileData> allFiles = new HashMap<>();
 
     private static class NodeJSProcess {
         OutputStream stdin;
@@ -181,8 +191,6 @@ public class TSService {
         }
     }
 
-    private static NodeJSProcess nodejs = null;
-
     private static class ProgramData {
         final String progVar;
         final Map<String, FileObject> files = new HashMap<>();
@@ -241,15 +249,13 @@ public class TSService {
         }
     }
 
-    private static final Map<URL, ProgramData> programs = new HashMap<>();
-
     private static class FileData {
         ProgramData program;
         String relPath;
     }
-    private static final Map<FileObject, FileData> allFiles = new HashMap<>();
 
-    static synchronized void addFile(Snapshot snapshot, Indexable indxbl, Context cntxt) {
+    static void addFile(Snapshot snapshot, Indexable indxbl, Context cntxt) {
+        lock.lock();
         try {
             URL rootURL = cntxt.getRootURI();
 
@@ -270,148 +276,180 @@ public class TSService {
             program.setFileSnapshot(fi.relPath, indxbl, snapshot, cntxt.checkForEditorModifications());
         } catch (Exception e) {
             throw new RuntimeException(e);
+        } finally {
+            lock.unlock();
         }
     }
 
-    static synchronized void removeFile(Indexable indxbl, Context cntxt) {
-        ProgramData program = programs.get(cntxt.getRootURI());
-        if (program != null) {
+    static void removeFile(Indexable indxbl, Context cntxt) {
+        lock.lock();
+        try {
+            ProgramData program = programs.get(cntxt.getRootURI());
+            if (program != null) {
+                try {
+                    FileObject fileObj = program.removeFile(indxbl.getRelativePath());
+                    allFiles.remove(fileObj);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    static void scanFinished(Context context) {
+        lock.lock();
+        try {
+            ProgramData program = programs.get(context.getRootURI());
+            if (program == null || ! program.needErrorsUpdate) {
+                return;
+            }
+            program.needErrorsUpdate = false;
+            // TODO: this is slow and locks out other TSService usage for too long in big projects
+            JSONObject diags = (JSONObject) program.call("getAllDiagnostics");
+            if (diags == null) {
+                return;
+            }
+            for (String fileName: (Set<String>) diags.keySet()) {
+                JSONArray errors = (JSONArray) diags.get(fileName);
+                Indexable i = program.indexables.get(fileName);
+                if (i == null) {
+                    log.log(Level.WARNING, "{0}: No indexable!", fileName);
+                    continue;
+                }
+                ErrorsCache.setErrors(context.getRootURI(), i, errors, new Convertor<JSONObject>() {
+                    @Override
+                    public ErrorsCache.ErrorKind getKind(JSONObject err) {
+                        int category = ((Number) err.get("category")).intValue();
+                        if (category == 0) {
+                            return ErrorsCache.ErrorKind.WARNING;
+                        } else {
+                            return ErrorsCache.ErrorKind.ERROR;
+                        }
+                    }
+                    @Override
+                    public int getLineNumber(JSONObject err) {
+                        return ((Number) err.get("line")).intValue();
+                    }
+                    @Override
+                    public String getMessage(JSONObject err) {
+                        return (String) err.get("messageText");
+                    }
+                });
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    static void removeProgram(URL rootURL) {
+        lock.lock();
+        try {
+            ProgramData program = programs.remove(rootURL);
+            if (program == null) {
+                return;
+            }
+
+            Iterator<FileData> iter = allFiles.values().iterator();
+            while (iter.hasNext()) {
+                FileData fd = iter.next();
+                if (fd.program == program) {
+                    iter.remove();
+                }
+            }
+
             try {
-                FileObject fileObj = program.removeFile(indxbl.getRelativePath());
-                allFiles.remove(fileObj);
+                program.dispose();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+
+            if (programs.isEmpty()) {
+                log.info("No programs left; shutting down nodejs");
+                try {
+                    nodejs.close();
+                } catch (IOException e) {}
+                nodejs = null;
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
-    static synchronized void scanFinished(Context context) {
-        ProgramData program = programs.get(context.getRootURI());
-        if (program == null || ! program.needErrorsUpdate) {
-            return;
-        }
-        program.needErrorsUpdate = false;
-        // TODO: this is slow and locks out other TSService usage for too long in big projects
-        JSONObject diags = (JSONObject) program.call("getAllDiagnostics");
-        if (diags == null) {
-            return;
-        }
-        for (String fileName: (Set<String>) diags.keySet()) {
-            JSONArray errors = (JSONArray) diags.get(fileName);
-            Indexable i = program.indexables.get(fileName);
-            if (i == null) {
-                log.log(Level.WARNING, "{0}: No indexable!", fileName);
-                continue;
-            }
-            ErrorsCache.setErrors(context.getRootURI(), i, errors, new Convertor<JSONObject>() {
-                @Override
-                public ErrorsCache.ErrorKind getKind(JSONObject err) {
-                    int category = ((Number) err.get("category")).intValue();
-                    if (category == 0) {
-                        return ErrorsCache.ErrorKind.WARNING;
-                    } else {
-                        return ErrorsCache.ErrorKind.ERROR;
-                    }
-                }
-                @Override
-                public int getLineNumber(JSONObject err) {
-                    return ((Number) err.get("line")).intValue();
-                }
-                @Override
-                public String getMessage(JSONObject err) {
-                    return (String) err.get("messageText");
-                }
-            });
-        }
-    }
-
-    static synchronized void removeProgram(URL rootURL) {
-        ProgramData program = programs.remove(rootURL);
-        if (program == null) {
-            return;
-        }
-
-        Iterator<FileData> iter = allFiles.values().iterator();
-        while (iter.hasNext()) {
-            FileData fd = iter.next();
-            if (fd.program == program) {
-                iter.remove();
-            }
-        }
-
+    static void updateFile(Snapshot snapshot) {
+        lock.lock();
         try {
-            program.dispose();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        if (programs.isEmpty()) {
-            log.info("No programs left; shutting down nodejs");
-            try {
-                nodejs.close();
-            } catch (IOException e) {}
-            nodejs = null;
+            FileData fd = allFiles.get(snapshot.getSource().getFileObject());
+            if (fd != null) {
+                fd.program.setFileSnapshot(fd.relPath, null, snapshot, true);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
-    static synchronized void updateFile(Snapshot snapshot) {
-        FileData fd = allFiles.get(snapshot.getSource().getFileObject());
-        if (fd != null) {
-            fd.program.setFileSnapshot(fd.relPath, null, snapshot, true);
-        }
-    }
-
-    static synchronized List<DefaultError> getDiagnostics(Snapshot snapshot) {
+    static List<DefaultError> getDiagnostics(Snapshot snapshot) {
         FileObject fo = snapshot.getSource().getFileObject();
-        FileData fd = allFiles.get(fo);
-        if (fd == null) {
-            return Arrays.asList(new DefaultError(null, 
-                "Unknown source root for file " + fo.getPath(),
-                null, fo, 0, 1, true, Severity.ERROR));
-        }
+        lock.lock();
+        try {
+            FileData fd = allFiles.get(fo);
+            if (fd == null) {
+                return Arrays.asList(new DefaultError(null,
+                    "Unknown source root for file " + fo.getPath(),
+                    null, fo, 0, 1, true, Severity.ERROR));
+            }
 
-        JSONArray diags = (JSONArray) fd.program.call("getDiagnostics", fd.relPath);
-        if (diags == null) {
-            return Arrays.asList(new DefaultError(null,
-                nodejs.error != null ? nodejs.error : "Error in getDiagnostics",
-                null, fo, 0, 1, true, Severity.ERROR));
-        }
+            JSONArray diags = (JSONArray) fd.program.call("getDiagnostics", fd.relPath);
+            if (diags == null) {
+                return Arrays.asList(new DefaultError(null,
+                    nodejs.error != null ? nodejs.error : "Error in getDiagnostics",
+                    null, fo, 0, 1, true, Severity.ERROR));
+            }
 
-        List<DefaultError> errors = new ArrayList<>();
-        for (JSONObject err: (List<JSONObject>) diags) {
-            int start = ((Number) err.get("start")).intValue();
-            int length = ((Number) err.get("length")).intValue();
-            String messageText = (String) err.get("messageText");
-            int category = ((Number) err.get("category")).intValue();
-            //int code = ((Number) err.get("code")).intValue();
-            errors.add(new DefaultError(null, messageText, null,
-                    fo, start, start + length, category < 0,
-                    category == 0 ? Severity.WARNING : Severity.ERROR));
+            List<DefaultError> errors = new ArrayList<>();
+            for (JSONObject err: (List<JSONObject>) diags) {
+                int start = ((Number) err.get("start")).intValue();
+                int length = ((Number) err.get("length")).intValue();
+                String messageText = (String) err.get("messageText");
+                int category = ((Number) err.get("category")).intValue();
+                //int code = ((Number) err.get("code")).intValue();
+                errors.add(new DefaultError(null, messageText, null,
+                        fo, start, start + length, category < 0,
+                        category == 0 ? Severity.WARNING : Severity.ERROR));
+            }
+            return errors;
+        } finally {
+            lock.unlock();
         }
-        return errors;
     }
 
-    static synchronized Object call(String method, FileObject fileObj, Object... args) {
-        FileData fd = allFiles.get(fileObj);
-        if (fd == null) {
-            return null;
-        }
-        Object[] filenameAndArgs = new Object[args.length + 1];
-        filenameAndArgs[0] = fd.relPath;
-        System.arraycopy(args, 0, filenameAndArgs, 1, args.length);
-        Object ret = fd.program.call(method, filenameAndArgs);
-        // Translate file names back to file objects
-        if (ret instanceof JSONArray) {
-            for (Object item: (JSONArray) ret) {
-                if (item instanceof JSONObject) {
-                    JSONObject obj = (JSONObject) item;
-                    Object fileName = obj.get("fileName");
-                    if (fileName instanceof String) {
-                        obj.put("fileObject", fd.program.getFile((String) fileName));
+    static Object call(String method, FileObject fileObj, Object... args) {
+        lock.lock();
+        try {
+            FileData fd = allFiles.get(fileObj);
+            if (fd == null) {
+                return null;
+            }
+            Object[] filenameAndArgs = new Object[args.length + 1];
+            filenameAndArgs[0] = fd.relPath;
+            System.arraycopy(args, 0, filenameAndArgs, 1, args.length);
+            Object ret = fd.program.call(method, filenameAndArgs);
+            // Translate file names back to file objects
+            if (ret instanceof JSONArray) {
+                for (Object item: (JSONArray) ret) {
+                    if (item instanceof JSONObject) {
+                        JSONObject obj = (JSONObject) item;
+                        Object fileName = obj.get("fileName");
+                        if (fileName instanceof String) {
+                            obj.put("fileObject", fd.program.getFile((String) fileName));
+                        }
                     }
                 }
             }
+            return ret;
+        } finally {
+            lock.unlock();
         }
-        return ret;
     }
 }
