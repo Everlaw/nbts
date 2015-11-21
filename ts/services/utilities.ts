@@ -12,7 +12,7 @@ namespace ts {
     export function getEndLinePosition(line: number, sourceFile: SourceFile): number {
         Debug.assert(line >= 0);
         let lineStarts = sourceFile.getLineStarts();
-        
+
         let lineIndex = line;
         if (lineIndex + 1 === lineStarts.length) {
             // last line - return EOF
@@ -131,7 +131,8 @@ namespace ts {
                 return isCompletedNode((<IfStatement>n).thenStatement, sourceFile);
 
             case SyntaxKind.ExpressionStatement:
-                return isCompletedNode((<ExpressionStatement>n).expression, sourceFile);
+                return isCompletedNode((<ExpressionStatement>n).expression, sourceFile) ||
+                    hasChildOfKind(n, SyntaxKind.SemicolonToken);
 
             case SyntaxKind.ArrayLiteralExpression:
             case SyntaxKind.ArrayBindingPattern:
@@ -173,7 +174,7 @@ namespace ts {
             case SyntaxKind.VoidExpression:
             case SyntaxKind.YieldExpression:
             case SyntaxKind.SpreadElementExpression:
-                let unaryWordExpression = (<TypeOfExpression|DeleteExpression|VoidExpression|YieldExpression|SpreadElementExpression>n);
+                let unaryWordExpression = (<TypeOfExpression | DeleteExpression | VoidExpression | YieldExpression | SpreadElementExpression>n);
                 return isCompletedNode(unaryWordExpression.expression, sourceFile);
 
             case SyntaxKind.TaggedTemplateExpression:
@@ -255,7 +256,7 @@ namespace ts {
         });
 
         // Either we didn't find an appropriate list, or the list must contain us.
-        Debug.assert(!syntaxList || contains(syntaxList.getChildren(), node)); 
+        Debug.assert(!syntaxList || contains(syntaxList.getChildren(), node));
         return syntaxList;
     }
 
@@ -391,7 +392,7 @@ namespace ts {
                 // if this is the case - then we should assume that token in question is located in previous child.
                 if (position < child.end && (nodeHasTokens(child) || child.kind === SyntaxKind.JsxText)) {
                     const start = child.getStart(sourceFile);
-                    const lookInPreviousChild = 
+                    const lookInPreviousChild =
                         (start >= position) || // cursor in the leading trivia
                         (child.kind === SyntaxKind.JsxText && start === child.end); // whitespace only JsxText 
                     
@@ -428,7 +429,7 @@ namespace ts {
             }
         }
     }
-    
+
     export function isInString(sourceFile: SourceFile, position: number) {
         let token = getTokenAtPosition(sourceFile, position);
         return token && token.kind === SyntaxKind.StringLiteral && position > token.getStart();
@@ -476,7 +477,7 @@ namespace ts {
         let commentRanges = getLeadingCommentRanges(sourceFile.text, token.pos);
 
         return forEach(commentRanges, jsDocPrefix);
-        
+
         function jsDocPrefix(c: CommentRange): boolean {
             var text = sourceFile.text;
             return text.length >= c.pos + 3 && text[c.pos] === '/' && text[c.pos + 1] === '*' && text[c.pos + 2] === '*';
@@ -566,6 +567,15 @@ namespace ts {
         return kind === SyntaxKind.SingleLineCommentTrivia || kind === SyntaxKind.MultiLineCommentTrivia;
     }
 
+    export function isStringOrRegularExpressionOrTemplateLiteral(kind: SyntaxKind): boolean {
+        if (kind === SyntaxKind.StringLiteral
+            || kind === SyntaxKind.RegularExpressionLiteral
+            || isTemplateLiteralKind(kind)) {
+            return true;
+        }
+        return false;
+    }
+
     export function isPunctuation(kind: SyntaxKind): boolean {
         return SyntaxKind.FirstPunctuation <= kind && kind <= SyntaxKind.LastPunctuation;
     }
@@ -630,7 +640,8 @@ namespace ts {
             increaseIndent: () => { indent++; },
             decreaseIndent: () => { indent--; },
             clear: resetWriter,
-            trackSymbol: () => { }
+            trackSymbol: () => { },
+            reportInaccessibleThisError: () => { }
         };
 
         function writeIndent() {
@@ -693,7 +704,7 @@ namespace ts {
     }
 
     export function displayPart(text: string, kind: SymbolDisplayPartKind, symbol?: Symbol): SymbolDisplayPart {
-        return <SymbolDisplayPart> {
+        return <SymbolDisplayPart>{
             text: text,
             kind: SymbolDisplayPartKind[kind]
         };

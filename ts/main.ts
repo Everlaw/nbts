@@ -111,7 +111,8 @@ class Program {
         } else if (/\.json$/.test(fileName)) { // tsconfig.json
             var pch: ts.ParseConfigHost = { readDirectory: () => [] };
             var basePath = ts.getDirectoryPath(fileName);
-            this.host.config = ts.parseConfigFile(JSON.parse(newText), pch, basePath).options;
+            var json = ts.parseConfigFileTextToJson(fileName, newText).config || {};
+            this.host.config = ts.parseJsonConfigFileContent(json, pch, basePath).options;
         }
     }
     deleteFile(fileName: string) {
@@ -461,6 +462,7 @@ class Program {
             TabSize: tabSize,
             NewLineCharacter: '\n',
             ConvertTabsToSpaces: expandTabs,
+            IndentStyle: ts.IndentStyle.Smart,
             InsertSpaceAfterCommaDelimiter: true,
             InsertSpaceAfterSemicolonInForStatements: true,
             InsertSpaceBeforeAndAfterBinaryOperators: true,
