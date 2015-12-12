@@ -26,29 +26,30 @@ declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
 var builtinLibs: {[name: string]: string} = {};
 
-class HostImpl implements ts.LanguageServiceHost {
+class HostImpl implements ts.LanguageServiceHost, ts.ParseConfigHost {
     version = 0;
-    files: {[name: string]: {version: string; snapshot: ts.IScriptSnapshot}} = {};
-    config: ts.CompilerOptions = {};
+    files: {[name: string]: {version: string; snapshot: SnapshotImpl}} = {};
+    cachedConfig: {path: string; pcl: ts.ParsedCommandLine} = null;
     log(s: string) {
         process.stdout.write('L' + JSON.stringify(s) + '\n');
     }
     getCompilationSettings() {
-        var settings: ts.CompilerOptions = Object.create(this.config);
-        if (this.config.noImplicitAny == null) {
+        var options = this.configUpToDate().pcl.options;
+        var settings: ts.CompilerOptions = Object.create(options);
+        if (options.noImplicitAny == null) {
             // report implicit-any errors anyway, but only as warnings (see getDiagnostics)
             settings.noImplicitAny = true;
         }
         return settings;
     }
     getNewLine() {
-        return ts.getNewLineCharacter(this.config);
+        return ts.getNewLineCharacter(this.configUpToDate().pcl.options);
     }
     getProjectVersion() {
         return String(this.version);
     }
     getScriptFileNames() {
-        return Object.keys(this.files);
+        return this.configUpToDate().pcl.fileNames;
     }
     getScriptVersion(fileName: string) {
         if (fileName in builtinLibs) {
@@ -73,10 +74,41 @@ class HostImpl implements ts.LanguageServiceHost {
         // and should therefore be canonical.
         return true;
     }
+    readDirectory(path: string, extension?: string, exclude?: string[]) {
+        exclude = ts.map(exclude, s => ts.combinePaths(path, s));
+        return Object.keys(this.files).filter(name => {
+            if (path && name.lastIndexOf(path + ts.directorySeparator, 0) !== 0) {
+                return false;
+            } else if (extension && ! ts.fileExtensionIs(name, extension)) {
+                return false;
+            } else if (exclude && exclude.some(e =>
+                    name === e || name.lastIndexOf(e + ts.directorySeparator, 0) === 0)) {
+                return false;
+            }
+            return true;
+        });
+    }
+    configUpToDate() {
+        if (! this.cachedConfig) {
+            var path = "";
+            var json = {};
+            var configFiles = this.readDirectory(null, '.json');
+            if (configFiles.length) {
+                // We only support one project per source root for now; if there are multiple
+                // tsconfig.json files under this root, pick the one with the shortest path.
+                configFiles.sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+                path = configFiles[0];
+                json = ts.parseConfigFileTextToJson(path, this.files[path].snapshot.text).config || {};
+            }
+            var dir = ts.getDirectoryPath(path);
+            this.cachedConfig = { path: path, pcl: ts.parseJsonConfigFileContent(json, this, dir) }
+        }
+        return this.cachedConfig;
+    }
 }
 
 class SnapshotImpl implements ts.IScriptSnapshot {
-    constructor(private text: string) {}
+    constructor(public text: string) {}
     getText(start: number, end: number) {
         return this.text.substring(start, end);
     }
@@ -103,53 +135,54 @@ class Program {
     service = ts.createLanguageService(this.host, ts.createDocumentRegistry(true));
     updateFile(fileName: string, newText: string, modified: boolean) {
         this.host.version++;
-        if (/\.tsx?$/.test(fileName)) {
-            this.host.files[fileName] = {
-                version: String(this.host.version),
-                snapshot: new SnapshotImpl(newText)
-            };
-        } else if (/\.json$/.test(fileName)) { // tsconfig.json
-            var pch: ts.ParseConfigHost = { readDirectory: () => [] };
-            var basePath = ts.getDirectoryPath(fileName);
-            var json = ts.parseConfigFileTextToJson(fileName, newText).config || {};
-            this.host.config = ts.parseJsonConfigFileContent(json, pch, basePath).options;
+        if (! (fileName in this.host.files) || /\.json$/.test(fileName)) {
+            this.host.cachedConfig = null;
         }
+        this.host.files[fileName] = {
+            version: String(this.host.version),
+            snapshot: new SnapshotImpl(newText)
+        };
     }
     deleteFile(fileName: string) {
         this.host.version++;
-        if (/\.tsx?$/.test(fileName)) {
-            delete this.host.files[fileName];
-        } else if (/\.json$/.test(fileName)) {
-            this.host.config = {};
-        }
+        this.host.cachedConfig = null;
+        delete this.host.files[fileName];
+    }
+    fileInProject(fileName: string) {
+        return !!this.service.getProgram().getSourceFile(ts.normalizeSlashes(fileName));
     }
     getDiagnostics(fileName: string) {
+        var config = this.host.configUpToDate();
+        if (! this.fileInProject(fileName)) {
+            return {
+                errs: [],
+                metaError: "File " + fileName + " is not in project defined by " + config.path
+            };
+        }
         var mapDiag = (diag: ts.Diagnostic) => ({
             line: ts.getLineAndCharacterOfPosition(diag.file, diag.start).line + 1,
             start: diag.start,
             length: diag.length,
             messageText: ts.flattenDiagnosticMessageText(diag.messageText, "\n"),
             // 7xxx is implicit-any errors
-            category: (diag.code >= 7000 && diag.code <= 7999 && ! this.host.config.noImplicitAny)
+            category: (diag.code >= 7000 && diag.code <= 7999 && ! config.pcl.options.noImplicitAny)
                 ? ts.DiagnosticCategory.Warning
                 : diag.category,
             code: diag.code
         });
         var errs = this.service.getSyntacticDiagnostics(fileName).map(mapDiag);
+        var metaError: string;
         try {
             // In case there are bugs in the type checker, make sure we can handle it throwing an
             // exception and still show the syntactic errors.
             errs = errs.concat(this.service.getSemanticDiagnostics(fileName).map(mapDiag));
         } catch (e) {
-            errs.push({
-                line: 1, start: 0, length: 1,
-                messageText: "Error in getSemanticDiagnostics\n\n" + e.stack,
-                category: -1, code: 0
-            });
+            metaError = "Error in getSemanticDiagnostics\n\n" + e.stack;
         }
-        return errs;
+        return { errs, metaError };
     }
     getCompletions(fileName: string, position: number, prefix: string, isPrefixMatch: boolean, caseSensitive: boolean) {
+        if (! this.fileInProject(fileName)) return null;
         var service = this.service;
         var info = service.getCompletionsAtPosition(fileName, position);
         if (! caseSensitive) prefix = prefix.toLowerCase();
@@ -167,9 +200,11 @@ class Program {
         return info;
     }
     getCompletionEntryDetails(fileName: string, position: number, entryName: string) {
+        if (! this.fileInProject(fileName)) return null;
         return this.service.getCompletionEntryDetails(fileName, position, entryName);
     }
     getQuickInfoAtPosition(fileName: string, position: number) {
+        if (! this.fileInProject(fileName)) return null;
         var quickInfo = this.service.getQuickInfoAtPosition(fileName, position);
         return quickInfo && {
             name: this.host.getScriptSnapshot(fileName).getText(quickInfo.textSpan.start, quickInfo.textSpan.start + quickInfo.textSpan.length),
@@ -182,6 +217,7 @@ class Program {
         };
     }
     getDefsAtPosition(fileName: string, position: number) {
+        if (! this.fileInProject(fileName)) return null;
         var defs = this.service.getDefinitionAtPosition(fileName, position);
         return defs && defs.map(di => {
             var sourceFile = this.service.getSourceFile(di.fileName);
@@ -197,6 +233,7 @@ class Program {
         });
     }
     getOccurrencesAtPosition(fileName: string, position: number) {
+        if (! this.fileInProject(fileName)) return null;
         var occurrences = this.service.getOccurrencesAtPosition(fileName, position);
         return occurrences && occurrences.map(occ => ({
             start: occ.textSpan.start,
@@ -206,6 +243,7 @@ class Program {
     getSemanticHighlights(fileName: string) {
         var program = this.service.getProgram();
         var sourceFile = program.getSourceFile(ts.normalizeSlashes(fileName));
+        if (! sourceFile) return null;
         var typeInfoResolver = program.getTypeChecker();
 
         var results: any[] = [];
@@ -341,6 +379,7 @@ class Program {
     getStructureItems(fileName: string) {
         var program = this.service.getProgram();
         var sourceFile = program.getSourceFile(ts.normalizeSlashes(fileName));
+        if (! sourceFile) return null;
         var typeInfoResolver = program.getTypeChecker();
 
         function buildResults(topNode: ts.Node, inFunction: boolean) {
@@ -434,12 +473,14 @@ class Program {
         return buildResults(sourceFile, false);
     }
     getFolds(fileName: string) {
+        // ok if file not in project
         return this.service.getOutliningSpans(fileName).map(os => ({
             start: os.textSpan.start,
             end: os.textSpan.start + os.textSpan.length
         }));
     }
     getReferencesAtPosition(fileName: string, position: number) {
+        if (! this.fileInProject(fileName)) return null;
         var refs = this.service.getReferencesAtPosition(fileName, position);
         return refs && refs.map(ref => {
             var file = this.service.getSourceFile(ref.fileName);
@@ -457,6 +498,7 @@ class Program {
     }
     getFormattingEdits(fileName: string, start: number, end: number,
             indent: number, tabSize: number, expandTabs: boolean) {
+        // ok if file not in project
         return this.service.getFormattingEditsForRange(fileName, start, end, {
             IndentSize: indent,
             TabSize: tabSize,
@@ -475,9 +517,11 @@ class Program {
         }).map(edit => ({ s: edit.span.start, l: edit.span.length, t: edit.newText }));
     }
     getRenameInfo(fileName: string, position: number) {
+        if (! this.fileInProject(fileName)) return null;
         return this.service.getRenameInfo(fileName, position);
     }
     findRenameLocations(fileName: string, position: number, findInStrings: boolean, findInComments: boolean) {
+        if (! this.fileInProject(fileName)) return null;
         var locs = this.service.findRenameLocations(fileName, position, findInStrings, findInComments);
         return locs && locs.map(loc => {
             return {
@@ -488,6 +532,7 @@ class Program {
         });
     }
     getEmitOutput(fileName: string) {
+        if (! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }
 }

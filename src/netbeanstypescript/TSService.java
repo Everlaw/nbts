@@ -355,9 +355,10 @@ public class TSService {
                             if (program.currentErrorsUpdate != currentUpdate) {
                                 return; // this task has been superseded
                             }
-                            JSONArray errors = (JSONArray) program.call("getDiagnostics", fileName);
+                            JSONObject errors = (JSONObject) program.call("getDiagnostics", fileName);
                             if (errors != null) {
-                                ErrorsCache.setErrors(rootURI, indexable, errors, errorConvertor);
+                                ErrorsCache.setErrors(rootURI, indexable,
+                                        (List<JSONObject>) errors.get("errs"), errorConvertor);
                             }
                         } finally {
                             lock.unlock();
@@ -432,7 +433,7 @@ public class TSService {
                     null, fo, 0, 1, true, Severity.ERROR));
             }
 
-            JSONArray diags = (JSONArray) fd.program.call("getDiagnostics", fd.relPath);
+            JSONObject diags = (JSONObject) fd.program.call("getDiagnostics", fd.relPath);
             if (diags == null) {
                 return Arrays.asList(new DefaultError(null,
                     nodejs.error != null ? nodejs.error : "Error in getDiagnostics",
@@ -440,14 +441,18 @@ public class TSService {
             }
 
             List<DefaultError> errors = new ArrayList<>();
-            for (JSONObject err: (List<JSONObject>) diags) {
+            String metaError = (String) diags.get("metaError");
+            if (metaError != null) {
+                errors.add(new DefaultError(null, metaError, null, fo, 0, 1, true, Severity.ERROR));
+            }
+            for (JSONObject err: (List<JSONObject>) diags.get("errs")) {
                 int start = ((Number) err.get("start")).intValue();
                 int length = ((Number) err.get("length")).intValue();
                 String messageText = (String) err.get("messageText");
                 int category = ((Number) err.get("category")).intValue();
                 //int code = ((Number) err.get("code")).intValue();
                 errors.add(new DefaultError(null, messageText, null,
-                        fo, start, start + length, category < 0,
+                        fo, start, start + length, false,
                         category == 0 ? Severity.WARNING : Severity.ERROR));
             }
             return errors;
