@@ -60,6 +60,13 @@
                     </folder>
                 </folder>
 
+                <!-- custom editor folding -->
+                <folder name="FoldManager">
+                    <file name="org-netbeans-editor-CustomFoldManager$Factory.instance">
+                        <attr name="position" intvalue="1100"/>
+                    </file>
+                </folder>
+
                 <!--
                     @LanguageRegistration automatically registers TLIndexer for the mime type. This
                     indexer gets a list of diagnostics for each file and puts the list into the
