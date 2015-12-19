@@ -23,7 +23,7 @@ Download the latest netbeanstypescript.nbm file from the [Releases](https://gith
 
 ### Versioning
 
-The version number of this plugin reflects the version of TypeScript it incorporates (currently 1.7.3), with an extra digit for new versions that do not involve a TypeScript update. We intend to keep this plugin up to date with new versions of TypeScript when they come out.
+The version number of this plugin reflects the version of TypeScript it incorporates (currently 1.7.5), with an extra digit for new versions that do not involve a TypeScript update. We intend to keep this plugin up to date with new versions of TypeScript when they come out.
 
 ### Contributing
 
@@ -33,5 +33,5 @@ We are happy to receive Pull Requests. If you are planning a big change, it's pr
 
 To build the plugin yourself, there are a couple of things that must be done first:
 * Edit this line in `build.xml` to point to where you have TypeScript installed:  
-  `<property name="typescript" value="${env.HOME}/TypeScript-1.7.3"/>`
+  `<property name="typescript" value="${env.HOME}/TypeScript-1.7.5"/>`
 * Open the project in NetBeans. (You can either build in NetBeans or run `ant` from the command line, but either way you must open the project first to create the `nbproject/private` files.)
