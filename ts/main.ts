@@ -342,7 +342,10 @@ class Program {
                 case SK.MethodDeclaration:
                 case SK.FunctionExpression:
                 case SK.FunctionDeclaration:
-                    node.name && highlightIdent(node.name, 'METHOD');
+                    // For MethodDeclaration, name.kind could be string literal
+                    if (node.name && node.name.kind === SK.Identifier) {
+                        highlightIdent(node.name, 'METHOD');
+                    }
                     break;
                 case SK.ClassExpression:
                 case SK.ClassDeclaration:
