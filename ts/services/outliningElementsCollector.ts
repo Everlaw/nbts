@@ -1,3 +1,6 @@
+// This file has been modified from the original for netbeanstypescript.
+// Portions Copyrighted 2015 Everlaw
+
 /* @internal */
 namespace ts {
     export module OutliningElementsCollector {
@@ -39,6 +42,14 @@ namespace ts {
                     let singleLineCommentCount = 0;
 
                     for (let currentComment of comments) {
+                        // netbeanstypescript: Don't fold comments with explicit <editor-fold>
+                        // directives, or those directives won't work
+                        if (/<\/?editor-fold\b/.test(sourceFile.text.substring(currentComment.pos, currentComment.end))) {
+                            singleLineCommentCount = 0;
+                            lastSingleLineCommentEnd = -1;
+                            isFirstSingleLineComment = true;
+                            continue;
+                        }
 
                         // For single line comments, combine consecutive ones (2 or more) into
                         // a single span from the start of the first till the end of the last
