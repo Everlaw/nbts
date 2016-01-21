@@ -68,6 +68,11 @@ public class TSProjectCustomizer implements ProjectCustomizer.CompositeCategoryP
         @ProjectCustomizer.CompositeCategoryProvider.Registration(
                 projectType = "org-netbeans-modules-maven", // MAVEN_PROJECT
                 category = "jsframeworks"
+        ),
+        // Non-Maven web application projects don't have the jsframeworks category
+        @ProjectCustomizer.CompositeCategoryProvider.Registration(
+                projectType = "org-netbeans-modules-web-project",
+                position = 360
         )
     })
     public static TSProjectCustomizer createCustomizer() {
