@@ -164,8 +164,8 @@ class Program {
             start: diag.start,
             length: diag.length,
             messageText: ts.flattenDiagnosticMessageText(diag.messageText, "\n"),
-            // 7xxx is implicit-any errors
-            category: (diag.code >= 7000 && diag.code <= 7999 && ! config.pcl.options.noImplicitAny)
+            // 2602 and 7000-7026 are implicit-any errors
+            category: (diag.code === 2602 || diag.code >= 7000 && diag.code <= 7026) && ! config.pcl.options.noImplicitAny
                 ? ts.DiagnosticCategory.Warning
                 : diag.category,
             code: diag.code
@@ -515,6 +515,7 @@ class Program {
             InsertSpaceAfterFunctionKeywordForAnonymousFunctions: false,
             InsertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: false,
             InsertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: false,
+            InsertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces: false,
             PlaceOpenBraceOnNewLineForFunctions: false,
             PlaceOpenBraceOnNewLineForControlBlocks: false
         }).map(edit => ({ s: edit.span.start, l: edit.span.length, t: edit.newText }));
