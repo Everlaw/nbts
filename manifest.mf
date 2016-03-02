@@ -3,4 +3,4 @@ AutoUpdate-Show-In-Client: true
 OpenIDE-Module: netbeanstypescript
 OpenIDE-Module-Layer: netbeanstypescript/resources/layer.xml
 OpenIDE-Module-Localizing-Bundle: netbeanstypescript/Bundle.properties
-OpenIDE-Module-Specification-Version: 1.8.2.0
+OpenIDE-Module-Specification-Version: 1.8.5.0
