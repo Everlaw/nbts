@@ -116,6 +116,25 @@ public class TSLexer implements Lexer<JsTokenId> {
         return ch >= '0' && ch <= '9';
     }
 
+    private Token<JsTokenId> decimal() {
+        int ch;
+        do {
+            ch = input.read();
+        } while (isDigit(ch));
+        if (ch == 'E' || ch == 'e') {
+            ch = input.read();
+            if (ch == '+' || ch == '-') {
+                ch = input.read();
+            }
+            while (isDigit(ch)) {
+                ch = input.read();
+            }
+        }
+        input.backup(1);
+        lastTokType = TERM;
+        return factory.createToken(JsTokenId.NUMBER);
+    }
+
     private Token<JsTokenId> scanString(int quote) {
         boolean escape = false;
         while (true) {
@@ -239,7 +258,7 @@ public class TSLexer implements Lexer<JsTokenId> {
             case '.':
                 ch = input.read();
                 if (isDigit(ch)) {
-                    // TODO - floating point literal
+                    return decimal();
                 }
                 if (ch == '.') {
                     if (input.read() == '.') {
@@ -283,7 +302,14 @@ public class TSLexer implements Lexer<JsTokenId> {
                 input.backup(1);
                 return factory.createToken(JsTokenId.OPERATOR_DIVISION);
             case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
-                // TODO
+                do {
+                    ch = input.read();
+                } while (Character.isLetterOrDigit(ch));
+                // TODO: hex/octal literals can't have decimals
+                if (ch == '.') {
+                    return decimal();
+                }
+                input.backup(1);
                 lastTokType = TERM;
                 return factory.createToken(JsTokenId.NUMBER);
             case ':':
