@@ -13,10 +13,10 @@
 
     <fontcolor name="mod-regexp" foreColor="9933CC" default="regexp" />
 
-    <fontcolor name="mod-method" foreColor="000000">
+    <fontcolor name="mod-method" default="method">
         <font style="bold" />
     </fontcolor>
-    <fontcolor name="mod-class" foreColor="000000">
+    <fontcolor name="mod-class" default="class">
         <font style="bold" />
     </fontcolor>
     <fontcolor name="mod-field" default="field"/>
