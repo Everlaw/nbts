@@ -34,6 +34,7 @@ class HostImpl implements ts.LanguageServiceHost, ts.ParseConfigHost {
         compileOnSave: boolean;
         pcl: ts.ParsedCommandLine;
     } = null;
+    constructor(public root: string) {}
     log(s: string) {
         process.stdout.write('L' + JSON.stringify(s) + '\n');
     }
@@ -94,7 +95,7 @@ class HostImpl implements ts.LanguageServiceHost, ts.ParseConfigHost {
     }
     configUpToDate() {
         if (! this.cachedConfig) {
-            var path = "";
+            var path = this.root + "/";
             var json = {};
             var configFiles = this.readDirectory(null, '.json');
             if (configFiles.length) {
@@ -139,8 +140,9 @@ class SnapshotImpl implements ts.IScriptSnapshot {
 }
 
 class Program {
-    host = new HostImpl();
+    host = new HostImpl(this.root);
     service = ts.createLanguageService(this.host, ts.createDocumentRegistry(true));
+    constructor(public root: string) {}
     updateFile(fileName: string, newText: string, modified: boolean) {
         this.host.version++;
         if (! (fileName in this.host.files) || /\.json$/.test(fileName)) {

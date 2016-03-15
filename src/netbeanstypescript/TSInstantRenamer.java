@@ -66,7 +66,7 @@ public class TSInstantRenamer implements InstantRenamer {
         }
         Set<OffsetRange> set = new HashSet<>();
         for (JSONObject loc: (List<JSONObject>) arr) {
-            if (loc.get("fileObject") != file) {
+            if (! loc.get("fileName").equals(file.getPath())) {
                 // There's a reference in another file; can't instant rename. Return null so that
                 // InstantRenameAction will start a refactoring rename instead.
                 return null;

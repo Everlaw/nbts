@@ -79,7 +79,10 @@ public class TSDeclarationFinder implements DeclarationFinder {
         }
         for (final JSONObject def: (List<JSONObject>) defs) {
             final String destFileName = (String) def.get("fileName");
-            FileObject destFileObj = (FileObject) def.get("fileObject");
+            FileObject destFileObj = TSService.findFileObject(destFileName);
+            if (destFileObj == null) {
+                return DeclarationLocation.NONE;
+            }
             int destOffset = ((Number) def.get("start")).intValue();
             final DeclarationLocation declLoc = new DeclarationLocation(destFileObj, destOffset, eh);
             if (defs.size() == 1) {

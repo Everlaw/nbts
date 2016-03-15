@@ -54,9 +54,6 @@ import javax.swing.text.Position;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.netbeans.lib.editor.util.StringEscapeUtils;
-import org.netbeans.modules.csl.api.DeclarationFinder;
-import org.netbeans.modules.csl.api.ElementHandle;
-import org.netbeans.modules.csl.api.OffsetRange;
 import org.netbeans.modules.csl.spi.GsfUtilities;
 import org.netbeans.modules.csl.spi.support.ModificationResult;
 import org.netbeans.modules.refactoring.api.*;
@@ -160,7 +157,10 @@ public class TSRefactoring extends ActionsImplementationProvider {
                     final int lineStart = ((Number) use.get("lineStart")).intValue();
                     final String lineText = (String) use.get("lineText");
 
-                    final FileObject useFileObj = (FileObject) use.get("fileObject");
+                    final FileObject useFileObj = TSService.findFileObject((String) use.get("fileName"));
+                    if (useFileObj == null) {
+                        continue;
+                    }
 
                     CloneableEditorSupport ces = GsfUtilities.findCloneableEditorSupport(useFileObj);
                     PositionRef ref1 = ces.createPositionRef(start, Position.Bias.Forward);
@@ -299,8 +299,16 @@ public class TSRefactoring extends ActionsImplementationProvider {
                     return new Problem(true, "findRenameLocations returned null");
                 }
                 ModificationResult modificationResult = new ModificationResult();
+                Problem firstProblem = null, lastProblem = null;
                 for (JSONObject loc: (List<JSONObject>) arr) {
-                    FileObject locFileObj = (FileObject) loc.get("fileObject");
+                    String locFileName = (String) loc.get("fileName");
+                    FileObject locFileObj = TSService.findFileObject(locFileName);
+                    if (locFileObj == null) {
+                        Problem p = new Problem(false, "Reference in unindexed file " + locFileName);
+                        if (lastProblem == null) firstProblem = p; else lastProblem.setNext(p);
+                        lastProblem = p;
+                        continue;
+                    }
                     CloneableEditorSupport ces = GsfUtilities.findCloneableEditorSupport(locFileObj);
                     modificationResult.addDifferences(locFileObj, Collections.singletonList(new ModificationResult.Difference(
                             ModificationResult.Difference.Kind.CHANGE,
@@ -314,7 +322,7 @@ public class TSRefactoring extends ActionsImplementationProvider {
                         refactoringElements.add(TSRenameRefactoring.this, DiffElement.create(diff, fo, modificationResult));
                     }
                 }
-                return null;
+                return firstProblem;
             }
         };
     }

@@ -110,7 +110,7 @@ public class TSService {
 
     private static NodeJSProcess nodejs = null;
     private static final Map<URL, ProgramData> programs = new HashMap<>();
-    private static final Map<FileObject, FileData> allFiles = new HashMap<>();
+    private static final Map<String, FileData> allFiles = new HashMap<>();
 
     private static class NodeJSProcess {
         OutputStream stdin;
@@ -196,14 +196,15 @@ public class TSService {
 
     private static class ProgramData {
         final String progVar;
-        final Map<String, FileObject> files = new HashMap<>();
-        final Map<String, Indexable> indexables = new HashMap<>();
+        final Map<Indexable, String> indexables = new HashMap<>();
         boolean needErrorsUpdate;
         Object currentErrorsUpdate;
 
-        ProgramData() throws Exception {
+        ProgramData(String root) throws Exception {
             progVar = "p" + nodejs.nextProgId++;
-            nodejs.eval(progVar + " = new Program()\n");
+            StringBuilder newProgram = new StringBuilder(progVar).append("= new Program(");
+            stringToJS(newProgram, root);
+            nodejs.eval(newProgram.append(")\n").toString());
         }
 
         Object call(String method, Object... args) {
@@ -225,27 +226,19 @@ public class TSService {
             }
         }
 
-        final void setFileSnapshot(String relPath, Indexable indexable, Snapshot s, boolean modified) {
-            call("updateFile", relPath, s.getText(), modified);
-            files.put(relPath, s.getSource().getFileObject());
-            if (indexable != null) {
-                indexables.put(relPath, indexable);
-                needErrorsUpdate = true;
-            }
+        final void addFile(String path, Indexable indexable, Snapshot s, boolean modified) {
+            call("updateFile", path, s.getText(), modified);
+            indexables.put(indexable, path);
+            needErrorsUpdate = true;
         }
 
-        FileObject getFile(String relPath) {
-            return (relPath.startsWith(NodeJSProcess.builtinLibPrefix) ? nodejs.builtinLibs : files).get(relPath);
-        }
-
-        FileObject removeFile(String relPath) throws Exception {
-            FileObject fileObj = files.remove(relPath);
-            if (fileObj != null) {
+        String removeFile(Indexable indexable) throws Exception {
+            String path = indexables.remove(indexable);
+            if (path != null) {
                 needErrorsUpdate = true;
-                call("deleteFile", relPath);
+                call("deleteFile", path);
             }
-            indexables.remove(relPath);
-            return fileObj;
+            return path;
         }
 
         void dispose() throws Exception {
@@ -255,7 +248,8 @@ public class TSService {
 
     private static class FileData {
         ProgramData program;
-        String relPath;
+        FileObject fileObject;
+        String path;
     }
 
     static void addFile(Snapshot snapshot, Indexable indxbl, Context cntxt) {
@@ -268,16 +262,17 @@ public class TSService {
                 if (nodejs == null) {
                     nodejs = new NodeJSProcess();
                 }
-                program = new ProgramData();
+                program = new ProgramData(cntxt.getRoot().getPath());
             }
             programs.put(rootURL, program);
 
             FileData fi = new FileData();
             fi.program = program;
-            fi.relPath = indxbl.getRelativePath();
-            allFiles.put(snapshot.getSource().getFileObject(), fi);
+            fi.fileObject = snapshot.getSource().getFileObject();
+            fi.path = fi.fileObject.getPath();
+            allFiles.put(fi.path, fi);
 
-            program.setFileSnapshot(fi.relPath, indxbl, snapshot, cntxt.checkForEditorModifications());
+            program.addFile(fi.path, indxbl, snapshot, cntxt.checkForEditorModifications());
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -291,8 +286,8 @@ public class TSService {
             ProgramData program = programs.get(cntxt.getRootURI());
             if (program != null) {
                 try {
-                    FileObject fileObj = program.removeFile(indxbl.getRelativePath());
-                    allFiles.remove(fileObj);
+                    String path = program.removeFile(indxbl);
+                    allFiles.remove(path);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -331,7 +326,7 @@ public class TSService {
             }
             program.needErrorsUpdate = false;
             program.currentErrorsUpdate = currentUpdate = new Object();
-            files = program.indexables.values().toArray(new Indexable[0]);
+            files = program.indexables.keySet().toArray(new Indexable[0]);
         } finally {
             lock.unlock();
         }
@@ -355,7 +350,8 @@ public class TSService {
                             if (program.currentErrorsUpdate != currentUpdate) {
                                 return; // this task has been superseded
                             }
-                            JSONObject errors = (JSONObject) program.call("getDiagnostics", fileName);
+                            JSONObject errors = (JSONObject) program.call("getDiagnostics",
+                                    program.indexables.get(indexable));
                             if (errors != null) {
                                 ErrorsCache.setErrors(rootURI, indexable,
                                         (List<JSONObject>) errors.get("errs"), errorConvertor);
@@ -413,9 +409,9 @@ public class TSService {
     static void updateFile(Snapshot snapshot) {
         lock.lock();
         try {
-            FileData fd = allFiles.get(snapshot.getSource().getFileObject());
+            FileData fd = allFiles.get(snapshot.getSource().getFileObject().getPath());
             if (fd != null) {
-                fd.program.setFileSnapshot(fd.relPath, null, snapshot, true);
+                fd.program.call("updateFile", fd.path, snapshot.getText(), true);
             }
         } finally {
             lock.unlock();
@@ -426,14 +422,14 @@ public class TSService {
         FileObject fo = snapshot.getSource().getFileObject();
         lock.lock();
         try {
-            FileData fd = allFiles.get(fo);
+            FileData fd = allFiles.get(fo.getPath());
             if (fd == null) {
                 return Arrays.asList(new DefaultError(null,
                     "Unknown source root for file " + fo.getPath(),
                     null, fo, 0, 1, true, Severity.ERROR));
             }
 
-            JSONObject diags = (JSONObject) fd.program.call("getDiagnostics", fd.relPath);
+            JSONObject diags = (JSONObject) fd.program.call("getDiagnostics", fd.path);
             if (diags == null) {
                 return Arrays.asList(new DefaultError(null,
                     nodejs.error != null ? nodejs.error : "Error in getDiagnostics",
@@ -464,27 +460,27 @@ public class TSService {
     static Object call(String method, FileObject fileObj, Object... args) {
         lock.lock();
         try {
-            FileData fd = allFiles.get(fileObj);
+            FileData fd = allFiles.get(fileObj.getPath());
             if (fd == null) {
                 return null;
             }
             Object[] filenameAndArgs = new Object[args.length + 1];
-            filenameAndArgs[0] = fd.relPath;
+            filenameAndArgs[0] = fd.path;
             System.arraycopy(args, 0, filenameAndArgs, 1, args.length);
-            Object ret = fd.program.call(method, filenameAndArgs);
-            // Translate file names back to file objects
-            if (ret instanceof JSONArray) {
-                for (Object item: (JSONArray) ret) {
-                    if (item instanceof JSONObject) {
-                        JSONObject obj = (JSONObject) item;
-                        Object fileName = obj.get("fileName");
-                        if (fileName instanceof String) {
-                            obj.put("fileObject", fd.program.getFile((String) fileName));
-                        }
-                    }
-                }
+            return fd.program.call(method, filenameAndArgs);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    static FileObject findFileObject(String path) {
+        lock.lock();
+        try {
+            if (path.startsWith(NodeJSProcess.builtinLibPrefix)) {
+                return nodejs != null ? nodejs.builtinLibs.get(path) : null;
             }
-            return ret;
+            FileData fd = allFiles.get(path);
+            return fd != null ? fd.fileObject : null;
         } finally {
             lock.unlock();
         }
