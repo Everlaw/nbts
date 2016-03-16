@@ -135,16 +135,14 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     }
 
     private void compileIfEnabled(FileObject root, FileObject fileObject) {
+        boolean guiSetting = false;
         Project project = FileOwnerQuery.getOwner(root);
-        if (project == null) {
-            return;
-        }
-        Preferences prefs = ProjectUtils.getPreferences(project, TSProjectCustomizer.class, true);
-        if (! "true".equals(prefs.get("compileOnSave", null))) {
-            return;
+        if (project != null) {
+            Preferences prefs = ProjectUtils.getPreferences(project, TSProjectCustomizer.class, true);
+            guiSetting = "true".equals(prefs.get("compileOnSave", null));
         }
         TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
-        JSONObject res = (JSONObject) TSService.call("getEmitOutput", fileObject);
+        JSONObject res = (JSONObject) TSService.call("getEmitOutput", fileObject, guiSetting);
         if (res == null) {
             return;
         }

@@ -42,6 +42,7 @@ import java.awt.event.ActionListener;
 import java.util.prefs.Preferences;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
@@ -90,6 +91,7 @@ public class TSProjectCustomizer implements ProjectCustomizer.CompositeCategoryP
         final Preferences prefs = ProjectUtils.getPreferences(project, TSProjectCustomizer.class, true);
 
         JPanel panel = new JPanel();
+        panel.add(new JLabel("<html>This setting is deprecated. Use <b>\"compileOnSave\": true</b> in tsconfig.json instead.</html>"));
         final JCheckBox compileOnSave = new JCheckBox((String) null,
                 "true".equals(prefs.get("compileOnSave", null)));
         Mnemonics.setLocalizedText(compileOnSave, "&Compile on Save");

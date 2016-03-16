@@ -29,7 +29,11 @@ var builtinLibs: {[name: string]: string} = {};
 class HostImpl implements ts.LanguageServiceHost, ts.ParseConfigHost {
     version = 0;
     files: {[name: string]: {version: string; snapshot: SnapshotImpl}} = {};
-    cachedConfig: {path: string; pcl: ts.ParsedCommandLine} = null;
+    cachedConfig: {
+        path: string;
+        compileOnSave: boolean;
+        pcl: ts.ParsedCommandLine;
+    } = null;
     log(s: string) {
         process.stdout.write('L' + JSON.stringify(s) + '\n');
     }
@@ -101,7 +105,11 @@ class HostImpl implements ts.LanguageServiceHost, ts.ParseConfigHost {
                 json = ts.parseConfigFileTextToJson(path, this.files[path].snapshot.text).config || {};
             }
             var dir = ts.getDirectoryPath(path);
-            this.cachedConfig = { path: path, pcl: ts.parseJsonConfigFileContent(json, this, dir) }
+            this.cachedConfig = {
+                path: path,
+                compileOnSave: json ? (<any>json).compileOnSave : undefined,
+                pcl: ts.parseJsonConfigFileContent(json, this, dir)
+            }
         }
         return this.cachedConfig;
     }
@@ -535,8 +543,9 @@ class Program {
             };
         });
     }
-    getEmitOutput(fileName: string) {
-        if (! this.fileInProject(fileName)) return null;
+    getEmitOutput(fileName: string, guiSetting: boolean) {
+        var { compileOnSave = guiSetting } = this.host.configUpToDate();
+        if (! compileOnSave || ! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }
 }
