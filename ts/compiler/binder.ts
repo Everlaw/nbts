@@ -1599,6 +1599,19 @@ namespace ts {
                 }
             }
 
+            // netbeanstypescript - Remove this when #7122 is fixed
+            var p = node.parent;
+            if (inStrictMode && !(file.languageVersion >= ScriptTarget.ES6 ||
+                    p.kind === SyntaxKind.ModuleBlock ||
+                    p.kind === SyntaxKind.SourceFile ||
+                    p.kind === SyntaxKind.Block && isFunctionLike(p.parent))) {
+                file.bindDiagnostics.push(createDiagnosticForNode(node, {
+                    code: 0, category: DiagnosticCategory.Error, key: "",
+                    message: "In pre-ES6 strict mode code, functions may be declared only at top level or immediately within another function."
+                        + "\nSee https://github.com/Microsoft/TypeScript/issues/7122"
+                }));
+            }
+
             checkStrictModeFunctionName(<FunctionDeclaration>node);
             return declareSymbolAndAddToSymbolTable(<Declaration>node, SymbolFlags.Function, SymbolFlags.FunctionExcludes);
         }
