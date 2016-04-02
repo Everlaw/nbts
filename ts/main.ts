@@ -31,6 +31,7 @@ class HostImpl implements ts.LanguageServiceHost {
     files: {[name: string]: {version: string; snapshot: SnapshotImpl}} = {};
     cachedConfig: {
         path: string;
+        parseError: ts.Diagnostic;
         compileOnSave: boolean;
         pcl: ts.ParsedCommandLine;
     } = null;
@@ -85,7 +86,7 @@ class HostImpl implements ts.LanguageServiceHost {
     configUpToDate() {
         if (! this.cachedConfig) {
             var path = this.root + "/";
-            var json = {};
+            var parsed: { config?: any; error?: ts.Diagnostic } = {};
             var configFiles = Object.keys(this.files)
                     .filter(name => ts.fileExtensionIs(name, '.json'));
             if (configFiles.length) {
@@ -93,13 +94,14 @@ class HostImpl implements ts.LanguageServiceHost {
                 // tsconfig.json files under this root, pick the one with the shortest path.
                 configFiles.sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
                 path = configFiles[0];
-                json = ts.parseConfigFileTextToJson(path, this.files[path].snapshot.text).config || {};
+                parsed = ts.parseConfigFileTextToJson(path, this.files[path].snapshot.text);
             }
             var dir = ts.getDirectoryPath(path);
             this.cachedConfig = {
                 path: path,
-                compileOnSave: json ? (<any>json).compileOnSave : undefined,
-                pcl: ts.parseJsonConfigFileContent(json, ts.sys, dir)
+                parseError: parsed.error,
+                compileOnSave: parsed.config ? parsed.config.compileOnSave : undefined,
+                pcl: ts.parseJsonConfigFileContent(parsed.config || {}, ts.sys, dir)
             }
         }
         return this.cachedConfig;
@@ -156,14 +158,23 @@ class Program {
         if (! this.fileInProject(fileName)) {
             return {
                 errs: [],
-                metaError: "File " + fileName + " is not in project defined by " + config.path
+                metaErrors: ["File " + fileName + " is not in project defined by " + config.path]
             };
         }
+        function errText(diag: ts.Diagnostic): string {
+            return ts.flattenDiagnosticMessageText(diag.messageText, "\n");
+        }
+        var metaErrors = config.parseError
+                ? [errText(config.parseError)]
+                : config.pcl.errors.map(diag => config.path + ": " + errText(diag));
+        this.service.getCompilerOptionsDiagnostics().forEach(diag => {
+            metaErrors.push("Project error: " + errText(diag));
+        });
         var mapDiag = (diag: ts.Diagnostic) => ({
             line: ts.getLineAndCharacterOfPosition(diag.file, diag.start).line + 1,
             start: diag.start,
             length: diag.length,
-            messageText: ts.flattenDiagnosticMessageText(diag.messageText, "\n"),
+            messageText: errText(diag),
             // 2602 and 7000-7026 are implicit-any errors
             category: (diag.code === 2602 || diag.code >= 7000 && diag.code <= 7026) && ! config.pcl.options.noImplicitAny
                 ? ts.DiagnosticCategory.Warning
@@ -171,15 +182,14 @@ class Program {
             code: diag.code
         });
         var errs = this.service.getSyntacticDiagnostics(fileName).map(mapDiag);
-        var metaError: string;
         try {
             // In case there are bugs in the type checker, make sure we can handle it throwing an
             // exception and still show the syntactic errors.
             errs = errs.concat(this.service.getSemanticDiagnostics(fileName).map(mapDiag));
         } catch (e) {
-            metaError = "Error in getSemanticDiagnostics\n\n" + e.stack;
+            metaErrors.push("Error in getSemanticDiagnostics\n\n" + e.stack);
         }
-        return { errs, metaError };
+        return { errs, metaErrors };
     }
     getCompletions(fileName: string, position: number, prefix: string, isPrefixMatch: boolean, caseSensitive: boolean) {
         if (! this.fileInProject(fileName)) return null;

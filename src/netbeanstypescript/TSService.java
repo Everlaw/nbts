@@ -437,8 +437,7 @@ public class TSService {
             }
 
             List<DefaultError> errors = new ArrayList<>();
-            String metaError = (String) diags.get("metaError");
-            if (metaError != null) {
+            for (String metaError: (List<String>) diags.get("metaErrors")) {
                 errors.add(new DefaultError(null, metaError, null, fo, 0, 1, true, Severity.ERROR));
             }
             for (JSONObject err: (List<JSONObject>) diags.get("errs")) {
