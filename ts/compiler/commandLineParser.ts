@@ -305,6 +305,10 @@ namespace ts {
             name: "noCustomAsyncPromise",
             type: "boolean",
             experimental: true
+        },
+        {
+            name: "disableSizeLimit",
+            type: "boolean"
         }
     ];
 
@@ -511,6 +515,7 @@ namespace ts {
         return {
             options,
             fileNames: getFileNames(),
+            typingOptions: getTypingOptions(),
             errors
         };
 
@@ -533,7 +538,7 @@ namespace ts {
                 }
                 else {
                     // by default exclude node_modules, and any specificied output directory
-                    exclude = ["node_modules"];
+                    exclude = ["node_modules", "bower_components"];
                     const outDir = json["compilerOptions"] && json["compilerOptions"]["outDir"];
                     if (outDir) {
                         exclude.push(outDir);
@@ -575,6 +580,35 @@ namespace ts {
             }
             return fileNames;
         }
+
+        function getTypingOptions(): TypingOptions {
+            const options: TypingOptions = getBaseFileName(configFileName) === "jsconfig.json"
+                ? { enableAutoDiscovery: true, include: [], exclude: [] }
+                : { enableAutoDiscovery: false, include: [], exclude: [] };
+            const jsonTypingOptions = json["typingOptions"];
+            if (jsonTypingOptions) {
+                for (const id in jsonTypingOptions) {
+                    if (id === "enableAutoDiscovery") {
+                        if (typeof jsonTypingOptions[id] === "boolean") {
+                            options.enableAutoDiscovery = jsonTypingOptions[id];
+                        }
+                        else {
+                            errors.push(createCompilerDiagnostic(Diagnostics.Unknown_typing_option_0, id));
+                        }
+                    }
+                    else if (id === "include") {
+                        options.include = convertJsonOptionToStringArray(id, jsonTypingOptions[id], errors);
+                    }
+                    else if (id === "exclude") {
+                        options.exclude = convertJsonOptionToStringArray(id, jsonTypingOptions[id], errors);
+                    }
+                    else {
+                        errors.push(createCompilerDiagnostic(Diagnostics.Unknown_typing_option_0, id));
+                    }
+                }
+            }
+            return options;
+        }
     }
 
     export function convertCompilerOptionsFromJson(jsonOptions: any, basePath: string, configFileName?: string): { options: CompilerOptions, errors: Diagnostic[] } {
@@ -610,9 +644,9 @@ namespace ts {
                     }
                     if (opt.isFilePath) {
                         value = normalizePath(combinePaths(basePath, value));
-                        if (value === "") {
-                            value = ".";
-                        }
+                       if (value === "") {
+                           value = ".";
+                       }
                     }
                     options[opt.name] = value;
                 }
@@ -626,5 +660,29 @@ namespace ts {
         }
 
         return { options, errors };
+    }
+
+    function convertJsonOptionToStringArray(optionName: string, optionJson: any, errors: Diagnostic[], func?: (element: string) => string): string[] {
+        const items: string[] = [];
+        let invalidOptionType = false;
+        if (!isArray(optionJson)) {
+            invalidOptionType = true;
+        }
+        else {
+            for (const element of <any[]>optionJson) {
+                if (typeof element === "string") {
+                    const item = func ? func(element) : element;
+                    items.push(item);
+                }
+                else {
+                    invalidOptionType = true;
+                    break;
+                }
+            }
+        }
+        if (invalidOptionType) {
+            errors.push(createCompilerDiagnostic(Diagnostics.Option_0_should_have_array_of_strings_as_a_value, optionName));
+        }
+        return items;
     }
 }

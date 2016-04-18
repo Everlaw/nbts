@@ -125,6 +125,7 @@ namespace ts {
         let hasAsyncFunctions: boolean;
         let hasDecorators: boolean;
         let hasParameterDecorators: boolean;
+        let hasJsxSpreadAttribute: boolean;
 
         // If this file is an external module, then it is automatically in strict-mode according to
         // ES6.  If it is not an external module, then we'll determine if it is in strict mode or
@@ -164,6 +165,7 @@ namespace ts {
             hasAsyncFunctions = false;
             hasDecorators = false;
             hasParameterDecorators = false;
+            hasJsxSpreadAttribute = false;
         }
 
         return bindSourceFile;
@@ -288,6 +290,7 @@ namespace ts {
             Debug.assert(!hasDynamicName(node));
 
             const isDefaultExport = node.flags & NodeFlags.Default;
+
             // The exported symbol for an export default function/class node is always named "default"
             const name = isDefaultExport && parent ? "default" : getDeclarationName(node);
 
@@ -505,6 +508,9 @@ namespace ts {
                 }
                 if (hasAsyncFunctions) {
                     flags |= NodeFlags.HasAsyncFunctions;
+                }
+                if (hasJsxSpreadAttribute) {
+                    flags |= NodeFlags.HasJsxSpreadAttribute;
                 }
             }
 
@@ -758,6 +764,7 @@ namespace ts {
                 case SyntaxKind.GetAccessor:
                 case SyntaxKind.SetAccessor:
                 case SyntaxKind.FunctionType:
+                case SyntaxKind.JSDocFunctionType:
                 case SyntaxKind.ConstructorType:
                 case SyntaxKind.FunctionExpression:
                 case SyntaxKind.ArrowFunction:
@@ -1296,6 +1303,10 @@ namespace ts {
                 case SyntaxKind.EnumMember:
                     return bindPropertyOrMethodOrAccessor(<Declaration>node, SymbolFlags.EnumMember, SymbolFlags.EnumMemberExcludes);
 
+                case SyntaxKind.JsxSpreadAttribute:
+                    hasJsxSpreadAttribute = true;
+                    return;
+
                 case SyntaxKind.CallSignature:
                 case SyntaxKind.ConstructSignature:
                 case SyntaxKind.IndexSignature:
@@ -1437,7 +1448,7 @@ namespace ts {
         function bindModuleExportsAssignment(node: BinaryExpression) {
             // 'module.exports = expr' assignment
             setCommonJsModuleIndicator(node);
-            bindExportAssignment(node);
+            declareSymbol(file.symbol.exports, file.symbol, node, SymbolFlags.Property | SymbolFlags.Export | SymbolFlags.ValueModule, SymbolFlags.None);
         }
 
         function bindThisPropertyAssignment(node: BinaryExpression) {
@@ -1474,7 +1485,8 @@ namespace ts {
             }
 
             // Declare the method/property
-            declareSymbol(funcSymbol.members, funcSymbol, leftSideOfAssignment, SymbolFlags.Property, SymbolFlags.PropertyExcludes);
+            // It's acceptable for multiple prototype property assignments of the same identifier to occur
+            declareSymbol(funcSymbol.members, funcSymbol, leftSideOfAssignment, SymbolFlags.Property, SymbolFlags.PropertyExcludes & ~SymbolFlags.Property);
         }
 
         function bindCallExpression(node: CallExpression) {

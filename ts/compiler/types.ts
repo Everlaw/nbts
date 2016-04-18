@@ -399,6 +399,10 @@ namespace ts {
         HasParamDecorators =    1 << 24,  // If the file has parameter decorators (initialized by binding)
         HasAsyncFunctions =     1 << 25,  // If the file has async functions (initialized by binding)
 
+        // This was picked out from the 'master' branch.
+        // To keep the flags consistent, we're skipping a few ahead.
+        HasJsxSpreadAttribute = 1 << 30,
+
         Modifier = Export | Ambient | Public | Private | Protected | Static | Abstract | Default | Async,
         AccessibilityModifier = Public | Private | Protected,
         BlockScoped = Let | Const,
@@ -433,7 +437,7 @@ namespace ts {
         JavaScriptFile = 1 << 5,
 
         // Context flags set directly by the parser.
-        ParserGeneratedFlags = DisallowIn | Yield | Decorator | ThisNodeHasError | Await,
+        ParserGeneratedFlags = DisallowIn | Yield | Decorator | ThisNodeHasError | Await | JavaScriptFile,
 
         // Exclude these flags when parsing a Type
         TypeExcludesFlags = Yield | Await,
@@ -1562,6 +1566,7 @@ namespace ts {
         hasNoDefaultLib: boolean;
 
         languageVersion: ScriptTarget;
+        /* @internal */ scriptKind: ScriptKind;
 
         // The first node that causes this file to be an external module
         /* @internal */ externalModuleIndicator: Node;
@@ -2440,6 +2445,7 @@ namespace ts {
         allowSyntheticDefaultImports?: boolean;
         allowJs?: boolean;
         noImplicitUseStrict?: boolean;
+        disableSizeLimit?: boolean;
         /* @internal */ stripInternal?: boolean;
 
         // Skip checking lib.d.ts to help speed up tests.
@@ -2450,6 +2456,22 @@ namespace ts {
         /* @internal */ noCustomAsyncPromise?: boolean;
 
         [option: string]: string | number | boolean;
+    }
+
+    export interface TypingOptions {
+        enableAutoDiscovery?: boolean;
+        include?: string[];
+        exclude?: string[];
+        [option: string]: string[] | boolean;
+    }
+
+    export interface DiscoverTypingsInfo {
+        fileNames: string[];                            // The file names that belong to the same project.
+        projectRootPath: string;                        // The path to the project root directory
+        safeListPath: string;                           // The path used to retrieve the safe list
+        packageNameToTypingLocation: Map<string>;       // The map of package names to their cached typing locations
+        typingOptions: TypingOptions;                   // Used to customize the typing inference process
+        compilerOptions: CompilerOptions;               // Used as a source for typing inference
     }
 
     export const enum ModuleKind {
@@ -2481,6 +2503,14 @@ namespace ts {
         character: number;
     }
 
+    export const enum ScriptKind {
+        Unknown = 0,
+        JS = 1,
+        JSX = 2,
+        TS = 3,
+        TSX = 4
+    }
+
     export const enum ScriptTarget {
         ES3 = 0,
         ES5 = 1,
@@ -2502,6 +2532,7 @@ namespace ts {
 
     export interface ParsedCommandLine {
         options: CompilerOptions;
+        typingOptions?: TypingOptions;
         fileNames: string[];
         errors: Diagnostic[];
     }
