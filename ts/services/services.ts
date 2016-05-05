@@ -4190,7 +4190,10 @@ namespace ts {
                                         displayParts.push(keywordPart(SyntaxKind.NewKeyword));
                                         displayParts.push(spacePart());
                                     }
-                                    if (!(type.flags & TypeFlags.Anonymous)) {
+                                    // netbeanstypescript - added .symbol check. Intersection and
+                                    // union types aren't "anonymous", but they have no symbol.
+                                    // Remove when #7966 is fixed
+                                    if (!(type.flags & TypeFlags.Anonymous) && type.symbol) {
                                         addRange(displayParts, symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, SymbolFormatFlags.WriteTypeParametersOrArguments));
                                     }
                                     addSignatureDisplayParts(signature, allSignatures, TypeFormatFlags.WriteArrowStyleSignature);
