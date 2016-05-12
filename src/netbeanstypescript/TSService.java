@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -53,7 +54,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 import org.json.simple.parser.ParseException;
@@ -89,7 +89,7 @@ public class TSService {
         sb.append('"');
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (c < 0x20 || c > 0x7E) {
+            if (c < 0x20) {
                 sb.append("\\u");
                 for (int j = 12; j >= 0; j -= 4) {
                     sb.append("0123456789ABCDEF".charAt((c >> j) & 0x0F));
@@ -131,7 +131,8 @@ public class TSService {
                         .command(command, "--harmony", file.toString())
                         .start();
                     stdin = process.getOutputStream();
-                    stdout = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    stdout = new BufferedReader(new InputStreamReader(process.getInputStream(),
+                            StandardCharsets.UTF_8));
                     process.getErrorStream().close();
                     error = null;
                     break;
@@ -165,7 +166,7 @@ public class TSService {
             long t1 = System.currentTimeMillis();
             String s;
             try {
-                stdin.write(code.getBytes());
+                stdin.write(code.getBytes(StandardCharsets.UTF_8));
                 stdin.flush();
                 while ((s = stdout.readLine()) != null && s.charAt(0) == 'L') {
                     log.fine((String) JSONValue.parseWithException(s.substring(1)));
