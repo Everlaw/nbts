@@ -408,9 +408,13 @@ public class TSService {
     }
 
     static void updateFile(Snapshot snapshot) {
+        FileObject fo = snapshot.getSource().getFileObject();
+        if (fo == null) {
+            return;
+        }
         lock.lock();
         try {
-            FileData fd = allFiles.get(snapshot.getSource().getFileObject().getPath());
+            FileData fd = allFiles.get(fo.getPath());
             if (fd != null) {
                 fd.program.call("updateFile", fd.path, snapshot.getText(), true);
             }
@@ -421,6 +425,10 @@ public class TSService {
 
     static List<DefaultError> getDiagnostics(Snapshot snapshot) {
         FileObject fo = snapshot.getSource().getFileObject();
+        if (fo == null) {
+            return Arrays.asList(new DefaultError(null, "FileObject is null",
+                    null, fo, 0, 1, true, Severity.ERROR));
+        }
         lock.lock();
         try {
             FileData fd = allFiles.get(fo.getPath());
@@ -458,6 +466,9 @@ public class TSService {
     }
 
     static Object call(String method, FileObject fileObj, Object... args) {
+        if (fileObj == null) {
+            return null;
+        }
         lock.lock();
         try {
             FileData fd = allFiles.get(fileObj.getPath());
