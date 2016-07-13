@@ -68,6 +68,7 @@ import org.netbeans.modules.parsing.spi.indexing.ErrorsCache;
 import org.netbeans.modules.parsing.spi.indexing.ErrorsCache.Convertor;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.modules.InstalledFileLocator;
 import org.openide.util.RequestProcessor;
@@ -104,6 +105,15 @@ public class TSService {
         sb.append('"');
     }
 
+    static final String builtinLibPrefix = "(builtin) ";
+    static final Map<String, FileObject> builtinLibs = new HashMap<>();
+    static {
+        for (String lib: new String[] { "lib.d.ts", "lib.es6.d.ts" }) {
+            URL libURL = TSService.class.getClassLoader().getResource("netbeanstypescript/resources/" + lib);
+            builtinLibs.put(builtinLibPrefix + lib, URLMapper.findFileObject(libURL));
+        }
+    }
+
     // All access to the TSService state below should be done with this lock acquired. This lock
     // has a fair ordering policy so error checking won't starve other user actions.
     private static final Lock lock = new ReentrantLock(true);
@@ -116,8 +126,6 @@ public class TSService {
         OutputStream stdin;
         BufferedReader stdout;
         String error;
-        static final String builtinLibPrefix = "(builtin) ";
-        Map<String, FileObject> builtinLibs = new HashMap<>();
         int nextProgId = 0;
 
         NodeJSProcess() throws Exception {
@@ -144,15 +152,12 @@ public class TSService {
             }
 
             StringBuilder initLibs = new StringBuilder();
-            for (String lib: new String[] { "lib.d.ts", "lib.es6.d.ts" }) {
+            for (Map.Entry<String, FileObject> lib: builtinLibs.entrySet()) {
                 initLibs.append("void(builtinLibs[");
-                stringToJS(initLibs, builtinLibPrefix + lib);
+                stringToJS(initLibs, lib.getKey());
                 initLibs.append("]=");
-                URL libURL = TSService.class.getClassLoader().getResource("netbeanstypescript/resources/" + lib);
-                FileObject libObj = URLMapper.findFileObject(libURL);
-                stringToJS(initLibs, Source.create(libObj).createSnapshot().getText());
+                stringToJS(initLibs, Source.create(lib.getValue()).createSnapshot().getText());
                 initLibs.append(");");
-                builtinLibs.put(builtinLibPrefix + lib, libObj);
             }
             eval(initLibs.append('\n').toString());
         }
@@ -484,16 +489,19 @@ public class TSService {
         }
     }
 
-    static FileObject findFileObject(String path) {
+    static FileObject findIndexedFileObject(String path) {
         lock.lock();
         try {
-            if (path.startsWith(NodeJSProcess.builtinLibPrefix)) {
-                return nodejs != null ? nodejs.builtinLibs.get(path) : null;
-            }
             FileData fd = allFiles.get(path);
             return fd != null ? fd.fileObject : null;
         } finally {
             lock.unlock();
         }
+    }
+
+    static FileObject findAnyFileObject(String path) {
+        return path.startsWith(builtinLibPrefix)
+                ? builtinLibs.get(path)
+                : FileUtil.toFileObject(new File(path));
     }
 }

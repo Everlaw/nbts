@@ -157,7 +157,7 @@ public class TSRefactoring extends ActionsImplementationProvider {
                     final int lineStart = ((Number) use.get("lineStart")).intValue();
                     final String lineText = (String) use.get("lineText");
 
-                    final FileObject useFileObj = TSService.findFileObject((String) use.get("fileName"));
+                    final FileObject useFileObj = TSService.findIndexedFileObject((String) use.get("fileName"));
                     if (useFileObj == null) {
                         continue;
                     }
@@ -302,7 +302,7 @@ public class TSRefactoring extends ActionsImplementationProvider {
                 Problem firstProblem = null, lastProblem = null;
                 for (JSONObject loc: (List<JSONObject>) arr) {
                     String locFileName = (String) loc.get("fileName");
-                    FileObject locFileObj = TSService.findFileObject(locFileName);
+                    FileObject locFileObj = TSService.findIndexedFileObject(locFileName);
                     if (locFileObj == null) {
                         Problem p = new Problem(false, "Reference in unindexed file " + locFileName);
                         if (lastProblem == null) firstProblem = p; else lastProblem.setNext(p);
