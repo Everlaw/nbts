@@ -550,6 +550,9 @@ class Program {
         if (! compileOnSave || ! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }
+    getCompilerOptions(fileName: string) {
+        return ts.optionDeclarations;
+    }
 }
 
 require('readline').createInterface(process.stdin, process.stdout).on('line', (l: string) => {

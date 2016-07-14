@@ -470,7 +470,7 @@ public class TSService {
         }
     }
 
-    static Object call(String method, FileObject fileObj, Object... args) {
+    public static Object call(String method, FileObject fileObj, Object... args) {
         if (fileObj == null) {
             return null;
         }

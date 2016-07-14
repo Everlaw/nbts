@@ -156,6 +156,10 @@
                     </file>
                 </folder>
             </folder>
+            <folder name="tsconfig+x-json">
+                <attr name="SystemFileSystem.icon" urlvalue="typescript.png"/>
+                <attr name="iconBase" stringvalue="netbeanstypescript/resources/typescript.png"/>
+            </folder>
         </folder>
     </folder>
 
