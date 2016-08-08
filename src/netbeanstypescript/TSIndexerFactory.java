@@ -60,7 +60,6 @@ import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.RequestProcessor;
 
 /**
  * This "indexer" doesn't really index anything, it's just a way to read all the TS files in a

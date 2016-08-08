@@ -202,7 +202,7 @@ public class TSService {
 
     private static class ProgramData {
         final String progVar;
-        final Map<Indexable, String> indexables = new HashMap<>();
+        final Map<String, FileData> byRelativePath = new HashMap<>();
         boolean needErrorsUpdate;
         Object currentErrorsUpdate;
 
@@ -232,19 +232,20 @@ public class TSService {
             }
         }
 
-        final void addFile(String path, Indexable indexable, Snapshot s, boolean modified) {
-            call("updateFile", path, s.getText(), modified);
-            indexables.put(indexable, path);
+        final void addFile(FileData fd, Snapshot s, boolean modified) {
+            call("updateFile", fd.path, s.getText(), modified);
+            byRelativePath.put(fd.indexable.getRelativePath(), fd);
             needErrorsUpdate = true;
         }
 
         String removeFile(Indexable indexable) throws Exception {
-            String path = indexables.remove(indexable);
-            if (path != null) {
+            FileData fd = byRelativePath.remove(indexable.getRelativePath());
+            if (fd != null) {
                 needErrorsUpdate = true;
-                call("deleteFile", path);
+                call("deleteFile", fd.path);
+                return fd.path;
             }
-            return path;
+            return null;
         }
 
         void dispose() throws Exception {
@@ -255,6 +256,7 @@ public class TSService {
     private static class FileData {
         ProgramData program;
         FileObject fileObject;
+        Indexable indexable;
         String path;
     }
 
@@ -275,10 +277,11 @@ public class TSService {
             FileData fi = new FileData();
             fi.program = program;
             fi.fileObject = snapshot.getSource().getFileObject();
+            fi.indexable = indxbl;
             fi.path = fi.fileObject.getPath();
             allFiles.put(fi.path, fi);
 
-            program.addFile(fi.path, indxbl, snapshot, cntxt.checkForEditorModifications());
+            program.addFile(fi, snapshot, cntxt.checkForEditorModifications());
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -323,7 +326,7 @@ public class TSService {
     static void updateErrors(final URL rootURI) {
         final ProgramData program;
         final Object currentUpdate;
-        final Indexable[] files;
+        final String[] files;
         lock.lock();
         try {
             program = programs.get(rootURI);
@@ -332,7 +335,7 @@ public class TSService {
             }
             program.needErrorsUpdate = false;
             program.currentErrorsUpdate = currentUpdate = new Object();
-            files = program.indexables.keySet().toArray(new Indexable[0]);
+            files = program.byRelativePath.keySet().toArray(new String[0]);
         } finally {
             lock.unlock();
         }
@@ -345,8 +348,8 @@ public class TSService {
                 try {
                     long t1 = System.currentTimeMillis();
                     for (int i = 0; i < files.length; i++) {
-                        Indexable indexable = files[i];
-                        String fileName = indexable.getRelativePath();
+                        String fileName = files[i];
+                        FileData fi = program.byRelativePath.get(fileName);
                         progress.progress(fileName, i);
                         if (fileName.endsWith(".json")) {
                             continue;
@@ -356,10 +359,9 @@ public class TSService {
                             if (program.currentErrorsUpdate != currentUpdate) {
                                 return; // this task has been superseded
                             }
-                            JSONObject errors = (JSONObject) program.call("getDiagnostics",
-                                    program.indexables.get(indexable));
+                            JSONObject errors = (JSONObject) program.call("getDiagnostics", fi.path);
                             if (errors != null) {
-                                ErrorsCache.setErrors(rootURI, indexable,
+                                ErrorsCache.setErrors(rootURI, fi.indexable,
                                         (List<JSONObject>) errors.get("errs"), errorConvertor);
                             }
                         } finally {
