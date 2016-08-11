@@ -203,7 +203,7 @@ namespace ts {
             }
 
             // netbeanstypescript: check for @deprecated comments before the declaration
-            var start = (node.kind === SyntaxKind.VariableDeclaration ? node.parent : node).pos;
+            var start = (node.kind === SyntaxKind.VariableDeclaration ? node.parent.parent : node).pos;
             if (file.text.substring(start, skipTrivia(file.text, start)).indexOf("@deprecated") >= 0) {
                 symbol.flags |= SymbolFlags.Deprecated;
             }

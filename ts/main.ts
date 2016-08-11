@@ -312,10 +312,6 @@ class Program {
                 if (node.parent.symbol && node.parent.name === node) {
                     // declaration
                     symbol = node.parent.symbol;
-                    if (node.parent.kind === SK.ShorthandPropertyAssignment) {
-                        // this isn't just a declaration, but also a usage - of a different symbol
-                        usedSymbols.add(typeInfoResolver.getShorthandAssignmentValueSymbol(node.parent));
-                    }
                 } else {
                     // usage
                     // TODO: In code like "import A = X; import B = A.foo;" this does not do quite
@@ -329,7 +325,6 @@ class Program {
                     }
                 }
                 if (symbol) {
-                    var decls = symbol.declarations;
                     if (symbol.flags & ts.SymbolFlags.Deprecated) {
                         highlightIdent(node, 'DEPRECATED');
                     }
@@ -339,7 +334,7 @@ class Program {
                         highlightIdent(node, 'FIELD');
                     } else if (symbol.flags & ts.SymbolFlags.ModuleMember) {
                         // var, function, class, interface, enum, module, type alias, alias
-                        if (isGlobal(decls[0])) {
+                        if (isGlobal(symbol.declarations[0])) {
                             highlightIdent(node, 'GLOBAL');
                         }
                     }
@@ -378,6 +373,16 @@ class Program {
                 case SK.GetAccessor:
                 case SK.SetAccessor:
                     highlight(node.name.pos - 3, node.name.pos, 'METHOD');
+                    break;
+                case SK.ShorthandPropertyAssignment:
+                    // this isn't just a declaration, but also a usage - of a different symbol
+                    usedSymbols.add(typeInfoResolver.getShorthandAssignmentValueSymbol(node));
+                    break;
+                case SK.ImportSpecifier:
+                case SK.ExportSpecifier:
+                    if (typeInfoResolver.getAliasedSymbol(node.symbol).flags & ts.SymbolFlags.Deprecated) {
+                        highlightIdent(node.propertyName || node.name, 'DEPRECATED');
+                    }
                     break;
             }
             ts.forEachChild(node, walk);
