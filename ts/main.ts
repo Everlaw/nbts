@@ -449,6 +449,10 @@ class Program {
                         break;
                     case SK.Constructor:
                         addFunc(<ts.ConstructorDeclaration>node, SEK.constructorImplementationElement);
+                        (<ts.ConstructorDeclaration>node).parameters.forEach(function(p) {
+                            if (p.flags & ts.NodeFlags.AccessibilityModifier)
+                                add(p, SEK.memberVariableElement, p.symbol);
+                        });
                         break;
                     case SK.GetAccessor:
                         addFunc(<ts.AccessorDeclaration>node, SEK.memberGetAccessorElement, node.symbol);
