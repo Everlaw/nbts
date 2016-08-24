@@ -148,7 +148,7 @@ public class TSLexer implements Lexer<JsTokenId> {
             } else {
                 if (ch == quote) {
                     lastTokType = TERM;
-                    return factory.createToken(JsTokenId.STRING);
+                    return factory.createToken(quote == '`' ? JsTokenId.STRING_TEMPLATE : JsTokenId.STRING);
                 }
                 if (quote == '`') {
                     if (ch == '$') {

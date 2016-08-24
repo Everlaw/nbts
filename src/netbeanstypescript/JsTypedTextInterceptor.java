@@ -72,7 +72,7 @@ public class JsTypedTextInterceptor implements TypedTextInterceptor {
     private static final TokenId[] REGEXP_TOKENS = { JsTokenId.REGEXP, JsTokenId.REGEXP_END };
 
     /** Tokens which indicate that we're within a literal string */
-    private final static TokenId[] STRING_TOKENS = { JsTokenId.STRING, JsTokenId.STRING_END };
+    private final static TokenId[] STRING_TOKENS = { JsTokenId.STRING, JsTokenId.STRING_TEMPLATE, JsTokenId.STRING_END };
 
     private final Language<JsTokenId> language;
 
