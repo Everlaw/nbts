@@ -155,7 +155,7 @@ public class TSLexer implements Lexer<JsTokenId> {
                         if (input.read() == '{') {
                             braceStack.add(Boolean.TRUE);
                             lastTokType = OPERATOR;
-                            return factory.createToken(JsTokenId.STRING);
+                            return factory.createToken(JsTokenId.STRING_TEMPLATE);
                         }
                         input.backup(1);
                     }
