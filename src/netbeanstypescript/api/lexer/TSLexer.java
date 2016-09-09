@@ -103,13 +103,13 @@ public class TSLexer implements Lexer<JsTokenId> {
     }
 
     boolean isWhiteSpace(int ch) {
-        return ch == ' ' || ch == '\t' || ch == 0x000B || ch == '\f' ||
+        return ch == ' ' || ch == '\t' || ch == 0x000B || ch == '\f' || ch == 0x0085 ||
                ch == 0x00A0 || ch == 0x1680 || (ch >= 0x2000 && ch <= 0x200B) ||
                ch == 0x202F || ch == 0x205F || ch == 0x3000 || ch == 0xFEFF;
     }
 
     boolean isLineBreak(int ch) {
-        return ch == '\n' || ch == '\r' || ch == 0x2028 || ch == 0x2029 || ch == 0x0085;
+        return ch == '\n' || ch == '\r' || ch == 0x2028 || ch == 0x2029;
     }
 
     boolean isDigit(int ch) {
@@ -181,6 +181,8 @@ public class TSLexer implements Lexer<JsTokenId> {
             case '\u000B':
             case '\f':
             case ' ':
+                while (isWhiteSpace(input.read())) {}
+                input.backup(1);
                 return factory.createToken(JsTokenId.WHITESPACE);
             case '!':
                 lastTokType = OPERATOR;
@@ -397,6 +399,8 @@ public class TSLexer implements Lexer<JsTokenId> {
                     lastTokType = TERM;
                     return factory.createToken(JsTokenId.IDENTIFIER);
                 } else if (isWhiteSpace(ch)) {
+                    while (isWhiteSpace(input.read())) {}
+                    input.backup(1);
                     return factory.createToken(JsTokenId.WHITESPACE);
                 } else if (isLineBreak(ch)) {
                     return factory.createToken(JsTokenId.EOL);
