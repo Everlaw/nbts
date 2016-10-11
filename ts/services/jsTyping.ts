@@ -1,7 +1,9 @@
 ﻿// Copyright (c) Microsoft. All rights reserved. Licensed under the Apache License, Version 2.0.
 // See LICENSE.txt in the project root for complete license information.
 
-/// <reference path='services.ts' />
+/// <reference path='../compiler/types.ts' />
+/// <reference path='../compiler/core.ts' />
+/// <reference path='../compiler/commandLineParser.ts' />
 
 /* @internal */
 namespace ts.JsTyping {
@@ -10,7 +12,7 @@ namespace ts.JsTyping {
         directoryExists: (path: string) => boolean;
         fileExists: (fileName: string) => boolean;
         readFile: (path: string, encoding?: string) => string;
-        readDirectory: (path: string, extension?: string, exclude?: string[], depth?: number) => string[];
+        readDirectory: (rootDir: string, extensions: string[], excludes: string[], includes: string[], depth?: number) => string[];
     };
 
     interface PackageJson {
@@ -26,6 +28,8 @@ namespace ts.JsTyping {
     // A map of loose file names to library names
     // that we are confident require typings
     let safeList: Map<string>;
+
+    const EmptySafeList: Map<string> = createMap<string>();
 
     /**
      * @param host is the object providing I/O related operations.
@@ -47,23 +51,21 @@ namespace ts.JsTyping {
         { cachedTypingPaths: string[], newTypingNames: string[], filesToWatch: string[] } {
 
         // A typing name to typing file path mapping
-        const inferredTypings: Map<string> = {};
+        const inferredTypings = createMap<string>();
 
         if (!typingOptions || !typingOptions.enableAutoDiscovery) {
             return { cachedTypingPaths: [], newTypingNames: [], filesToWatch: [] };
         }
 
         // Only infer typings for .js and .jsx files
-        fileNames = filter(map(fileNames, normalizePath), f => scriptKindIs(f, /*LanguageServiceHost*/ undefined, ScriptKind.JS, ScriptKind.JSX));
+        fileNames = filter(map(fileNames, normalizePath), f => {
+            const kind = ensureScriptKind(f, getScriptKindFromFileName(f));
+            return kind === ScriptKind.JS || kind === ScriptKind.JSX;
+        });
 
         if (!safeList) {
             const result = readConfigFile(safeListPath, (path: string) => host.readFile(path));
-            if (result.config) {
-                safeList = result.config;
-            }
-            else {
-                safeList = {};
-            }
+            safeList = result.config ? createMap<string>(result.config) : EmptySafeList;
         }
 
         const filesToWatch: string[] = [];
@@ -93,7 +95,7 @@ namespace ts.JsTyping {
 
         // Add the cached typing locations for inferred typings that are already installed
         for (const name in packageNameToTypingLocation) {
-            if (hasProperty(inferredTypings, name) && !inferredTypings[name]) {
+            if (name in inferredTypings && !inferredTypings[name]) {
                 inferredTypings[name] = packageNameToTypingLocation[name];
             }
         }
@@ -124,7 +126,7 @@ namespace ts.JsTyping {
             }
 
             for (const typing of typingNames) {
-                if (!hasProperty(inferredTypings, typing)) {
+                if (!(typing in inferredTypings)) {
                     inferredTypings[typing] = undefined;
                 }
             }
@@ -139,16 +141,16 @@ namespace ts.JsTyping {
                 const jsonConfig: PackageJson = result.config;
                 filesToWatch.push(jsonPath);
                 if (jsonConfig.dependencies) {
-                    mergeTypings(getKeys(jsonConfig.dependencies));
+                    mergeTypings(getOwnKeys(jsonConfig.dependencies));
                 }
                 if (jsonConfig.devDependencies) {
-                    mergeTypings(getKeys(jsonConfig.devDependencies));
+                    mergeTypings(getOwnKeys(jsonConfig.devDependencies));
                 }
                 if (jsonConfig.optionalDependencies) {
-                    mergeTypings(getKeys(jsonConfig.optionalDependencies));
+                    mergeTypings(getOwnKeys(jsonConfig.optionalDependencies));
                 }
                 if (jsonConfig.peerDependencies) {
-                    mergeTypings(getKeys(jsonConfig.peerDependencies));
+                    mergeTypings(getOwnKeys(jsonConfig.peerDependencies));
                 }
             }
         }
@@ -163,14 +165,12 @@ namespace ts.JsTyping {
             const jsFileNames = filter(fileNames, hasJavaScriptFileExtension);
             const inferredTypingNames = map(jsFileNames, f => removeFileExtension(getBaseFileName(f.toLowerCase())));
             const cleanedTypingNames = map(inferredTypingNames, f => f.replace(/((?:\.|-)min(?=\.|$))|((?:-|\.)\d+)/g, ""));
-            if (safeList === undefined) {
-                mergeTypings(cleanedTypingNames);
-            }
-            else {
-                mergeTypings(filter(cleanedTypingNames, f => hasProperty(safeList, f)));
+
+            if (safeList !== EmptySafeList) {
+                mergeTypings(filter(cleanedTypingNames, f => f in safeList));
             }
 
-            const hasJsxFile = forEach(fileNames, f => scriptKindIs(f, /*LanguageServiceHost*/ undefined, ScriptKind.JSX));
+            const hasJsxFile = forEach(fileNames, f => ensureScriptKind(f, getScriptKindFromFileName(f)) === ScriptKind.JSX);
             if (hasJsxFile) {
                 mergeTypings(["react"]);
             }
@@ -187,7 +187,7 @@ namespace ts.JsTyping {
             }
 
             const typingNames: string[] = [];
-            const fileNames = host.readDirectory(nodeModulesPath, "*.json", /*exclude*/ undefined, /*depth*/ 2);
+            const fileNames = host.readDirectory(nodeModulesPath, [".json"], /*excludes*/ undefined, /*includes*/ undefined, /*depth*/ 2);
             for (const fileName of fileNames) {
                 const normalizedFileName = normalizePath(fileName);
                 if (getBaseFileName(normalizedFileName) !== "package.json") {

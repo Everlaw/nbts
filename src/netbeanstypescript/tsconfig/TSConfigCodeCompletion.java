@@ -69,7 +69,7 @@ public class TSConfigCodeCompletion implements CodeCompletionHandler {
         Object type;
         boolean hidden;
         String message;
-        String errorMessage;
+        TSConfigElementHandle element;
 
         TSConfigElementHandle(JSONObject obj) {
             name = (String) obj.get("name");
@@ -82,9 +82,9 @@ public class TSConfigCodeCompletion implements CodeCompletionHandler {
             } else {
                 hidden = true;
             }
-            JSONObject error = (JSONObject) obj.get("error");
-            if (error != null) {
-                errorMessage = (String) error.get("message");
+            JSONObject elem = (JSONObject) obj.get("element");
+            if (elem != null) {
+                element = new TSConfigElementHandle(elem);
             }
         }
 

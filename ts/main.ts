@@ -230,7 +230,7 @@ class Program {
         if (! this.fileInProject(fileName)) return null;
         var defs = this.service.getDefinitionAtPosition(fileName, position);
         return defs && defs.map(di => {
-            var sourceFile = this.service.getSourceFile(di.fileName);
+            var sourceFile = this.service.getNonBoundSourceFile(di.fileName);
             return {
                 fileName: di.fileName,
                 start: di.textSpan.start,
@@ -450,7 +450,7 @@ class Program {
                     case SK.Constructor:
                         addFunc(<ts.ConstructorDeclaration>node, SEK.constructorImplementationElement);
                         (<ts.ConstructorDeclaration>node).parameters.forEach(function(p) {
-                            if (p.flags & ts.NodeFlags.AccessibilityModifier)
+                            if (p.flags & ts.NodeFlags.ParameterPropertyModifier)
                                 add(p, SEK.memberVariableElement, p.symbol);
                         });
                         break;
@@ -505,7 +505,7 @@ class Program {
         if (! this.fileInProject(fileName)) return null;
         var refs = this.service.getReferencesAtPosition(fileName, position);
         return refs && refs.map(ref => {
-            var file = this.service.getSourceFile(ref.fileName);
+            var file = this.service.getNonBoundSourceFile(ref.fileName);
             var lineStarts = file.getLineStarts();
             var line = ts.computeLineAndCharacterOfPosition(lineStarts, ref.textSpan.start).line;
             return {
