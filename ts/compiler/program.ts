@@ -1,3 +1,5 @@
+// This file has been modified from the original for netbeanstypescript.
+
 /// <reference path="sys.ts" />
 /// <reference path="emitter.ts" />
 /// <reference path="core.ts" />
@@ -657,7 +659,9 @@ namespace ts {
                 (oldOptions.configFilePath !== options.configFilePath) ||
                 (oldOptions.baseUrl !== options.baseUrl) ||
                 (oldOptions.maxNodeModuleJsDepth !== options.maxNodeModuleJsDepth) ||
-                !arrayIsEqualTo(oldOptions.typeRoots, oldOptions.typeRoots) ||
+                // nbts edit: added lib comparison, fixed typeRoots comparison
+                !arrayIsEqualTo(oldOptions.lib, options.lib) ||
+                !arrayIsEqualTo(oldOptions.typeRoots, options.typeRoots) ||
                 !arrayIsEqualTo(oldOptions.rootDirs, options.rootDirs) ||
                 !equalOwnProperties(oldOptions.paths, options.paths)) {
                 return false;

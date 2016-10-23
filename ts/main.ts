@@ -78,7 +78,7 @@ class HostImpl implements ts.LanguageServiceHost {
         return "";
     }
     getDefaultLibFileName(options: ts.CompilerOptions): string {
-        return "(builtin) " + ts.getDefaultLibFileName(options);
+        return "(builtin)/" + ts.getDefaultLibFileName(options);
     }
     useCaseSensitiveFileNames() {
         return ts.sys.useCaseSensitiveFileNames;

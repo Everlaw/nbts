@@ -44,8 +44,14 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -105,12 +111,17 @@ public class TSService {
         sb.append('"');
     }
 
-    static final String builtinLibPrefix = "(builtin) ";
+    static final String builtinLibPrefix = "(builtin)/";
     static final Map<String, FileObject> builtinLibs = new HashMap<>();
     static {
-        for (String lib: new String[] { "lib.d.ts", "lib.es6.d.ts" }) {
-            URL libURL = TSService.class.getClassLoader().getResource("netbeanstypescript/resources/" + lib);
-            builtinLibs.put(builtinLibPrefix + lib, URLMapper.findFileObject(libURL));
+        URL libDirURL = TSService.class.getClassLoader().getResource("netbeanstypescript/lib");
+        try (FileSystem jarFs = FileSystems.newFileSystem(libDirURL.toURI(), Collections.<String, Object>emptyMap());
+             DirectoryStream<Path> libDir = Files.newDirectoryStream(jarFs.getPath("netbeanstypescript/lib"))) {
+            for (Path lib: libDir) {
+                builtinLibs.put(builtinLibPrefix + lib.getFileName(), URLMapper.findFileObject(lib.toUri().toURL()));
+            }
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Error enumerating libs", e);
         }
     }
 
