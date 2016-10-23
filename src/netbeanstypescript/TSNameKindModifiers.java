@@ -56,6 +56,8 @@ public class TSNameKindModifiers {
             "org/netbeans/modules/csl/source/resources/icons/enum.png"));
     static final ImageIcon interfaceIcon = new ImageIcon(ImageUtilities.loadImage(
             "org/netbeans/modules/csl/source/resources/icons/interface.png"));
+    static final ImageIcon folderIcon = new ImageIcon(ImageUtilities.loadImage(
+            "org/openide/loaders/defaultFolder.gif"));
 
     String name;
     ElementKind kind = ElementKind.OTHER;
@@ -68,7 +70,7 @@ public class TSNameKindModifiers {
         // See ScriptElementKind in services/services.ts
         switch ((String) obj.get("kind")) {
             case "keyword": kind = ElementKind.KEYWORD; break;
-            case "script": break;
+            case "script": kind = ElementKind.FILE; break;
             case "module": kind = ElementKind.MODULE; break;
             case "class": kind = ElementKind.CLASS; break;
             case "interface": case "type": kind = ElementKind.INTERFACE; icon = interfaceIcon; break;
@@ -92,6 +94,8 @@ public class TSNameKindModifiers {
             case "alias": break;
             case "const": kind = ElementKind.CONSTANT; break;
             case "let": kind = ElementKind.VARIABLE; break;
+            case "directory": kind = ElementKind.PACKAGE; icon = folderIcon; break;
+            case "external module name": kind = ElementKind.MODULE; break;
             default: TSService.log.log(Level.WARNING, "Unknown symbol kind [{0}]", obj.get("kind"));
         }
 

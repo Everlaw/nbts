@@ -75,13 +75,28 @@ class HostImpl implements ts.LanguageServiceHost {
         return typeof text === 'string' ? new SnapshotImpl(text) : undefined;
     }
     getCurrentDirectory() {
-        return "";
+        return this.root;
     }
     getDefaultLibFileName(options: ts.CompilerOptions): string {
         return "(builtin)/" + ts.getDefaultLibFileName(options);
     }
     useCaseSensitiveFileNames() {
         return ts.sys.useCaseSensitiveFileNames;
+    }
+    readDirectory(path: string, extensions?: string[], exclude?: string[], include?: string[]) {
+        return ts.sys.readDirectory(path, extensions, exclude, include);
+    }
+    readFile(path: string, encoding?: string) {
+        return ts.sys.readFile(path, encoding);
+    }
+    fileExists(path: string) {
+        return ts.sys.fileExists(path);
+    }
+    directoryExists(directoryName: string) {
+        return ts.sys.directoryExists(directoryName);
+    }
+    getDirectories(directoryName: string) {
+        return ts.sys.getDirectories(directoryName);
     }
     configUpToDate() {
         if (! this.cachedConfig) {

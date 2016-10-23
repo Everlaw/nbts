@@ -4948,6 +4948,8 @@ namespace ts {
                 }
                 else if (host.getDirectories) {
                     const typeRoots = getEffectiveTypeRoots(options, host);
+                    // nbts edit: typeRoots may be undefined
+                    if (typeRoots)
                     for (const root of typeRoots) {
                         getCompletionEntriesFromDirectories(host, options, root, span, result);
                     }

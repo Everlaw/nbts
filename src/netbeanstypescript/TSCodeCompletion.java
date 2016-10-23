@@ -115,7 +115,12 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         public int getSortPrioOverride() { return 0; }
         @Override
         public String getCustomInsertTemplate() {
-            return getInsertPrefix() + (getKind() == ElementKind.METHOD ? "(${cursor})" : "");
+            String suffix = "";
+            switch (getKind()) {
+                case METHOD: suffix = "(${cursor})"; break;
+                case PACKAGE: suffix = "/"; break;
+            }
+            return getInsertPrefix() + suffix;
         }
     }
 
