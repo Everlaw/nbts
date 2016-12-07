@@ -315,7 +315,7 @@ class Program {
                 } else if (node.symbol.flags & 0x1A00C) {
                     // property, enum member, method, get/set - public by default
                     // is only local if "private" modifier is present
-                    isLocal = !! (node.flags & ts.NodeFlags.Private);
+                    isLocal = ts.hasModifier(node, ts.ModifierFlags.Private);
                 } else {
                     // other symbols are local unless in global scope or exported
                     isLocal = ! (isGlobal(node) || node.localSymbol);
@@ -465,7 +465,7 @@ class Program {
                     case SK.Constructor:
                         addFunc(<ts.ConstructorDeclaration>node, SEK.constructorImplementationElement);
                         (<ts.ConstructorDeclaration>node).parameters.forEach(function(p) {
-                            if (p.flags & ts.NodeFlags.ParameterPropertyModifier)
+                            if (ts.hasModifier(p, ts.ModifierFlags.ParameterPropertyModifier))
                                 add(p, SEK.memberVariableElement, p.symbol);
                         });
                         break;
