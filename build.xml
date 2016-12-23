@@ -29,6 +29,7 @@
             <arg value="--removeComments"/>
             <arg value="--out"/>
             <arg value="${cluster}/nbts-services.js"/>
+            <arg value="--noEmitOnError"/>
         </exec>
     </target>
 </project>
