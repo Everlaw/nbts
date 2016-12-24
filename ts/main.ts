@@ -415,7 +415,7 @@ class Program {
         if (! sourceFile) return null;
         var typeInfoResolver = program.getTypeChecker();
 
-        function buildResults(topNode: ts.Node, inFunction: boolean) {
+        function buildResults(topNode: ts.Node, inFunction: boolean, baseTypes?: [ts.Type, boolean][]) {
             var results: any[] = [];
             function add(node: ts.Declaration, kind: string, symbol?: ts.Symbol) {
                 var name = node.kind === SK.Constructor ? "constructor" : (<any>node.name).text;
@@ -432,35 +432,58 @@ class Program {
                 if (symbol) {
                     var type = typeInfoResolver.getTypeOfSymbolAtLocation(symbol, node);
                     res.type = typeInfoResolver.typeToString(type);
+                    if (baseTypes && symbol.name && ! ts.hasModifier(node, ts.ModifierFlags.Static)) {
+                        var overrides: any[] = [];
+                        baseTypes.forEach(([baseType, isImplements]) => {
+                            var baseSym = typeInfoResolver.getPropertyOfType(baseType, symbol.name);
+                            if (! baseSym) return;
+                            var baseDecl = baseSym.valueDeclaration;
+                            var baseSource = baseDecl.getSourceFile();
+                            overrides.push({
+                                fileName: baseSource.fileName,
+                                start: ts.skipTrivia(baseSource.text, baseDecl.pos),
+                                name: typeInfoResolver.symbolToString(baseSym.parent),
+                                wasAbstract: isImplements || ts.hasModifier(baseDecl, ts.ModifierFlags.Abstract)
+                            });
+                        });
+                        if (overrides.length) {
+                            res.overrides = overrides;
+                        }
+                    }
                 }
                 results.push(res);
                 return res;
             }
             function addFunc(node: ts.FunctionLikeDeclaration, kind: string, symbol?: ts.Symbol) {
+                var res = add(node, kind, symbol);
                 if (node.body) {
-                    var res = add(node, kind, symbol);
                     res.children = buildResults(node.body, true);
                 }
             }
-            function addWithHeritage(node: ts.ClassDeclaration | ts.InterfaceDeclaration, kind: string) {
+            function addClass(node: ts.ClassDeclaration | ts.InterfaceDeclaration, kind: string) {
                 var res = add(node, kind);
+                var baseTypes: [ts.Type, boolean][] = [];
                 node.heritageClauses && node.heritageClauses.forEach(hc => {
-                    var types = hc.types.map(type => type.getFullText()).join(', ');
-                    if (hc.token === SK.ExtendsKeyword) {
-                        res.extends = types;
-                    } else {
-                        res.type = types;
-                    }
+                    var isExtends = hc.token === SK.ExtendsKeyword;
+                    var typeNames = hc.types.map(typeNode => {
+                        baseTypes.push([typeInfoResolver.getTypeAtLocation(typeNode), ! isExtends]);
+                        return typeNode.getFullText();
+                    }).join(", ");
+                    res[isExtends ? "extends" : "type"] = typeNames;
                 });
-                return res;
+                res.children = buildResults(node, false, baseTypes);
             }
             function visit(node: ts.Node) {
                 switch (node.kind) {
                     case SK.PropertyDeclaration:
-                        add(<ts.PropertyDeclaration>node, SEK.memberVariableElement, node.symbol);
+                    case SK.PropertySignature:
+                        add(<ts.PropertyDeclaration | ts.PropertySignature>node, SEK.memberVariableElement, node.symbol);
                         break;
                     case SK.MethodDeclaration:
                         addFunc(<ts.MethodDeclaration>node, SEK.memberFunctionElement, node.symbol);
+                        break;
+                    case SK.MethodSignature:
+                        add(<ts.MethodSignature>node, SEK.memberFunctionElement, node.symbol);
                         break;
                     case SK.Constructor:
                         addFunc(<ts.ConstructorDeclaration>node, SEK.constructorImplementationElement);
@@ -486,11 +509,10 @@ class Program {
                         addFunc(<ts.FunctionDeclaration>node, SEK.functionElement, node.symbol);
                         break;
                     case SK.ClassDeclaration:
-                        var res = addWithHeritage(<ts.ClassDeclaration>node, SEK.classElement);
-                        res.children = buildResults(node, false);
+                        addClass(<ts.ClassDeclaration>node, SEK.classElement);
                         break;
                     case SK.InterfaceDeclaration:
-                        addWithHeritage(<ts.InterfaceDeclaration>node, SEK.interfaceElement);
+                        addClass(<ts.InterfaceDeclaration>node, SEK.interfaceElement);
                         break;
                     case SK.EnumDeclaration:
                         add(<ts.EnumDeclaration>node, SEK.enumElement);

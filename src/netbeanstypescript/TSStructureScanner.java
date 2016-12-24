@@ -47,6 +47,7 @@ import javax.swing.ImageIcon;
 import org.json.simple.JSONObject;
 import org.netbeans.modules.csl.api.*;
 import org.netbeans.modules.csl.spi.ParserResult;
+import org.openide.filesystems.FileObject;
 
 /**
  *
@@ -54,22 +55,23 @@ import org.netbeans.modules.csl.spi.ParserResult;
  */
 public class TSStructureScanner implements StructureScanner {
 
-    private static class TSStructureItem extends TSNameKindModifiers implements StructureItem {
+    static class TSStructureItem extends TSElementHandle implements StructureItem {
         String typeExtends;
         String type;
-        int start;
-        int end;
+        Object overrides;
 
+        FileObject fileObj;
         TSStructureItem parent;
         int numOfName;
         List<TSStructureItem> children;
 
         TSStructureItem(JSONObject item) {
-            super(item);
+            super(new OffsetRange(((Number) item.get("start")).intValue(),
+                                  ((Number) item.get("end")).intValue()),
+                    item);
             typeExtends = (String) item.get("extends");
             type = (String) item.get("type");
-            start = ((Number) item.get("start")).intValue();
-            end = ((Number) item.get("end")).intValue();
+            overrides = item.get("overrides");
         }
 
         @Override
@@ -98,15 +100,19 @@ public class TSStructureScanner implements StructureScanner {
             return hf.getText();
         }
         @Override
-        public ElementHandle getElementHandle() { return null; }
+        public ElementHandle getElementHandle() { return this; }
+        @Override
+        public FileObject getFileObject() { return fileObj; }
+        @Override
+        public String getMimeType() { return "text/typescript"; }
         @Override
         public boolean isLeaf() { return children.isEmpty(); }
         @Override
         public List<? extends StructureItem> getNestedItems() { return children; }
         @Override
-        public long getPosition() { return start; }
+        public long getPosition() { return textSpan.getStart(); }
         @Override
-        public long getEndPosition() { return end; }
+        public long getEndPosition() { return textSpan.getEnd(); }
         @Override
         public ImageIcon getCustomIcon() { return getIcon(); }
 
@@ -131,7 +137,7 @@ public class TSStructureScanner implements StructureScanner {
         }
     }
 
-    private List<TSStructureItem> convertStructureItems(TSStructureItem parent, Object arr) {
+    private List<TSStructureItem> convertStructureItems(FileObject fileObj, TSStructureItem parent, Object arr) {
         if (arr == null) {
             return Collections.emptyList();
         }
@@ -143,9 +149,10 @@ public class TSStructureScanner implements StructureScanner {
             if (numOfName == null) numOfName = 0;
             nameCounts.put(item.name, numOfName + 1);
 
+            item.fileObj = fileObj;
             item.parent = parent;
             item.numOfName = numOfName;
-            item.children = convertStructureItems(item, elem.get("children"));
+            item.children = convertStructureItems(fileObj, item, elem.get("children"));
             items.add(item);
         }
         return items;
@@ -153,8 +160,8 @@ public class TSStructureScanner implements StructureScanner {
 
     @Override
     public List<? extends StructureItem> scan(ParserResult pr) {
-        return convertStructureItems(null, TSService.call("getStructureItems",
-                pr.getSnapshot().getSource().getFileObject()));
+        FileObject fo = pr.getSnapshot().getSource().getFileObject();
+        return convertStructureItems(fo, null, TSService.call("getStructureItems", fo));
     }
 
     @Override

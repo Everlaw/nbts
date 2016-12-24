@@ -110,4 +110,7 @@ public class TSLanguage extends DefaultLanguageConfig {
     public boolean hasFormatter() { return true; }
     @Override
     public Formatter getFormatter() { return new TSFormatter(); }
+
+    @Override
+    public OverridingMethods getOverridingMethods() { return new TSOverridingMethods(); }
 }
