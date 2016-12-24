@@ -26,6 +26,13 @@ declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
 var builtinLibs: {[name: string]: string} = {};
 
+var implicitAnyErrors: {[code: number]: boolean} = {};
+[[2602, 2602], [7000, 7026], [7031, 7034]].forEach(([lo, hi]) => {
+    for (var code = lo; code <= hi; code++) {
+        implicitAnyErrors[code] = true;
+    }
+});
+
 class HostImpl implements ts.LanguageServiceHost {
     version = 0;
     files: {[name: string]: {version: string; snapshot: SnapshotImpl}} = {};
@@ -190,8 +197,7 @@ class Program {
             start: diag.start,
             length: diag.length,
             messageText: errText(diag),
-            // 2602 and 7000-7026 are implicit-any errors
-            category: (diag.code === 2602 || diag.code >= 7000 && diag.code <= 7026) && ! config.pcl.options.noImplicitAny
+            category: diag.code in implicitAnyErrors && ! config.pcl.options.noImplicitAny
                 ? ts.DiagnosticCategory.Warning
                 : diag.category,
             code: diag.code
