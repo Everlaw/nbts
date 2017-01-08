@@ -605,6 +605,10 @@ class Program {
     getCompilerOptions(fileName: string) {
         return ts.optionDeclarations;
     }
+    getCodeFixesAtPosition(fileName: string, start: number, end: number, errorCodes: number[]) {
+        if (! this.fileInProject(fileName)) return null;
+        return this.service.getCodeFixesAtPosition(fileName, start, end, errorCodes);
+    }
 }
 
 require('readline').createInterface(process.stdin, process.stdout).on('line', (l: string) => {

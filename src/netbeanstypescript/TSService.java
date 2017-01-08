@@ -47,9 +47,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
@@ -126,6 +128,7 @@ public class TSService {
         OutputStream stdin;
         BufferedReader stdout;
         String error;
+        Set<Integer> supportedCodeFixes = new HashSet<>();
         int nextProgId = 0;
 
         NodeJSProcess() throws Exception {
@@ -149,6 +152,10 @@ public class TSService {
                             + "\n\nClose all TypeScript projects and reopen to retry."
                             + "\n\n" + e;
                 }
+            }
+
+            for (String code: (List<String>) eval("ts.getSupportedCodeFixes()\n")) {
+                supportedCodeFixes.add(Integer.valueOf(code));
             }
 
             StringBuilder initLibs = new StringBuilder();
@@ -461,8 +468,9 @@ public class TSService {
                 int length = ((Number) err.get("length")).intValue();
                 String messageText = (String) err.get("messageText");
                 int category = ((Number) err.get("category")).intValue();
-                //int code = ((Number) err.get("code")).intValue();
-                errors.add(new DefaultError(null, messageText, null,
+                int code = ((Number) err.get("code")).intValue();
+                boolean fix = nodejs.supportedCodeFixes.contains(code);
+                errors.add(new DefaultError(fix ? Integer.toString(code) : null, messageText, null,
                         fo, start, start + length, false,
                         category == 0 ? Severity.WARNING : Severity.ERROR));
             }

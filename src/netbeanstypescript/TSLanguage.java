@@ -113,4 +113,9 @@ public class TSLanguage extends DefaultLanguageConfig {
 
     @Override
     public OverridingMethods getOverridingMethods() { return new TSOverridingMethods(); }
+
+    @Override
+    public boolean hasHintsProvider() { return true; }
+    @Override
+    public HintsProvider getHintsProvider() { return new TSHintsProvider(); }
 }
