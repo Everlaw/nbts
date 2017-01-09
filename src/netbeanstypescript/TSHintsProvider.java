@@ -108,24 +108,12 @@ public class TSHintsProvider implements HintsProvider {
                                 public void run() {
                                     try {
                                         for (JSONObject change: (List<JSONObject>) fix.get("changes")) {
-                                            int sizeChange = 0;
-                                            int editsStart = -1, editsEnd = -1;
-                                            for (JSONObject textChange: (List<JSONObject>) change.get("textChanges")) {
-                                                JSONObject span = (JSONObject) textChange.get("span");
-                                                int start = ((Number) span.get("start")).intValue() + sizeChange;
-                                                int length = ((Number) span.get("length")).intValue();
-                                                String newText = (String) textChange.get("newText");
-                                                context.doc.replace(start, length, newText, null);
-                                                sizeChange += newText.length() - length;
-                                                if (editsStart == -1) {
-                                                    editsStart = start;
-                                                }
-                                                editsEnd = start + newText.length();
-                                            }
+                                            OffsetRange changed = TSFormatter.applyEdits(context.doc,
+                                                    change.get("textChanges"));
                                             // Code fixes are badly formatted, so reformat the affected range
                                             // https://github.com/Microsoft/TypeScript/issues/12249
-                                            if (editsStart >= 0) {
-                                                formatter.reformat(editsStart, editsEnd);
+                                            if (changed != null) {
+                                                formatter.reformat(changed.getStart(), changed.getEnd());
                                             }
                                         }
                                     } catch (BadLocationException ex) {
