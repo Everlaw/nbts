@@ -154,6 +154,11 @@
                         <attr name="originalFile" stringvalue="Actions/System/org-openide-actions-ToolsAction.instance"/>
                         <attr name="position" intvalue="1500"/>
                     </file>
+
+                    <file name="CompileAction.instance">
+                        <attr name="instanceClass" stringvalue="netbeanstypescript.CompileAction"/>
+                        <attr name="position" intvalue="650"/>
+                    </file>
                 </folder>
             </folder>
             <folder name="tsconfig+x-json">

@@ -597,9 +597,13 @@ class Program {
             };
         });
     }
-    getEmitOutput(fileName: string, guiSetting: boolean) {
+    getCompileOnSaveEmitOutput(fileName: string, guiSetting: boolean) {
         var { compileOnSave = guiSetting } = this.host.configUpToDate();
         if (! compileOnSave || ! this.fileInProject(fileName)) return null;
+        return this.service.getEmitOutput(fileName);
+    }
+    getEmitOutput(fileName: string) {
+        if (! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }
     getCompilerOptions(fileName: string) {

@@ -37,17 +37,9 @@
  */
 package netbeanstypescript;
 
-import java.io.IOException;
-import java.io.Writer;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.prefs.Preferences;
-import org.json.simple.JSONObject;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
@@ -56,8 +48,6 @@ import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
-import org.openide.DialogDisplayer;
-import org.openide.NotifyDescriptor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 
@@ -141,29 +131,6 @@ public class TSIndexerFactory extends CustomIndexerFactory {
             guiSetting = "true".equals(prefs.get("compileOnSave", null));
         }
         TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
-        JSONObject res = (JSONObject) TSService.call("getEmitOutput", fileObject, guiSetting);
-        if (res == null) {
-            return;
-        }
-        Path rootPath = Paths.get(root.getPath());
-        for (JSONObject file: (List<JSONObject>) res.get("outputFiles")) {
-            String name = (String) file.get("name");
-            boolean writeBOM = Boolean.TRUE.equals(file.get("writeByteOrderMark"));
-            String text = (String) file.get("text");
-            Path p = rootPath.resolve(name);
-            TSService.log.log(Level.FINE, "Writing {0}", p);
-            try {
-                Files.createDirectories(p.getParent());
-                try (Writer w = Files.newBufferedWriter(p, StandardCharsets.UTF_8)) {
-                    if (writeBOM) w.write('\uFEFF');
-                    w.write(text);
-                }
-            } catch (IOException e) {
-                String error = "Compile on save: could not write file " + name + "\n" + e;
-                DialogDisplayer.getDefault().notify(
-                        new NotifyDescriptor.Message(error, NotifyDescriptor.ERROR_MESSAGE));
-                break;
-            }
-        }
+        CompileAction.writeEmitOutput(TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
     }
 }
