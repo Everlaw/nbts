@@ -202,6 +202,7 @@ public enum JsTokenId implements TokenId {
     TYPESCRIPT_DECLARE("declare", "keyword"), // NOI18N
     TYPESCRIPT_FROM("from", "keyword"), // NOI18N
     TYPESCRIPT_IS("is", "keyword"), // NOI18N
+    TYPESCRIPT_KEYOF("keyof", "keyword"), // NOI18N
     TYPESCRIPT_MODULE("module", "keyword"), // NOI18N
     TYPESCRIPT_NAMESPACE("namespace", "keyword"), // NOI18N
     TYPESCRIPT_NEVER("never", "keyword"), // NOI18N
