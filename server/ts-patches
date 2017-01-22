@@ -76,23 +76,6 @@
              });
          }
  
---- services/outliningElementsCollector.ts
-+++ services/outliningElementsCollector.ts
-@@ -38,6 +38,14 @@
-                 let singleLineCommentCount = 0;
- 
-                 for (const currentComment of comments) {
-+                    // netbeanstypescript: Don't fold comments with explicit <editor-fold>
-+                    // directives, or those directives won't work
-+                    if (/<\/?editor-fold\b/.test(sourceFile.text.substring(currentComment.pos, currentComment.end))) {
-+                        singleLineCommentCount = 0;
-+                        lastSingleLineCommentEnd = -1;
-+                        isFirstSingleLineComment = true;
-+                        continue;
-+                    }
- 
-                     // For single line comments, combine consecutive ones (2 or more) into
-                     // a single span from the start of the first till the end of the last
 --- services/types.ts
 +++ services/types.ts
 @@ -560,6 +560,7 @@

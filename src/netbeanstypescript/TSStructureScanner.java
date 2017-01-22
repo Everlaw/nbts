@@ -43,6 +43,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.ImageIcon;
 import org.json.simple.JSONObject;
 import org.netbeans.modules.csl.api.*;
@@ -164,6 +166,8 @@ public class TSStructureScanner implements StructureScanner {
         return convertStructureItems(fo, null, TSService.call("getStructureItems", fo));
     }
 
+    private final Pattern editorFolds = Pattern.compile("</?editor-fold\\b.*\\s*");
+
     @Override
     public Map<String, List<OffsetRange>> folds(ParserResult pr) {
         Object arr = TSService.call("getFolds", pr.getSnapshot().getSource().getFileObject());
@@ -171,10 +175,25 @@ public class TSStructureScanner implements StructureScanner {
             return Collections.emptyMap();
         }
         List<OffsetRange> ranges = new ArrayList<>();
+        CharSequence text = pr.getSnapshot().getText();
         for (JSONObject span: (List<JSONObject>) arr) {
-            ranges.add(new OffsetRange(
-                ((Number) span.get("start")).intValue(),
-                ((Number) span.get("end")).intValue()));
+            int start = ((Number) span.get("start")).intValue();
+            int end = ((Number) span.get("end")).intValue();
+            if (text.charAt(start) == '/') {
+                // ts.OutliningElementsCollector creates folds for sequences of multiple //-comments
+                // preceding a declaration, but this can prevent NetBeans's <editor-fold> directives
+                // from working. Remove all lines up to and including the last such directive.
+                int startDelta = 0;
+                for (Matcher m = editorFolds.matcher(text.subSequence(start, end)); m.find(); ) {
+                    startDelta = m.end();
+                }
+                start += startDelta;
+                // There may be only a single line left - for consistency, don't fold it
+                if (text.subSequence(start, end).toString().indexOf('\n') < 0) {
+                    continue;
+                }
+            }
+            ranges.add(new OffsetRange(start, end));
         }
         return Collections.singletonMap("codeblocks", ranges);
     }
