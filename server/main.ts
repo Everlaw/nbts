@@ -15,6 +15,52 @@
  */
 
 /// <reference path="ts/services/services.ts"/>
+
+namespace ts {
+    // This type is used in services.ts but only declared in shims.ts (a file we don't need)
+    export type LanguageServiceShimHost = LanguageServiceHost;
+
+    export interface Symbol {
+        nbtsDeprecated?: boolean;
+    }
+
+    var { bindSourceFile, getNodeModifiers } = ts;
+    ts.bindSourceFile = function(file, options) {
+        bindSourceFile(file, options);
+        var next = -1;
+        // Find all declarations with a preceding @deprecated comment and mark their symbols as such
+        forEachChild(file, function visit(node: Node) {
+            if (next >= node.end) return;
+            if (next < node.pos) {
+                next = file.text.indexOf("@deprecated", node.pos) >>> 0;
+            }
+            if (next < skipTrivia(file.text, node.pos)) {
+                if (node.kind === SyntaxKind.ModuleDeclaration) {
+                    while ((<ModuleDeclaration>node).body &&
+                        (<ModuleDeclaration>node).body.kind === SyntaxKind.ModuleDeclaration) {
+                         node = (<ModuleDeclaration>node).body;
+                    }
+                } else if (node.kind === SyntaxKind.VariableStatement) {
+                    forEach((<VariableStatement>node).declarationList.declarations, decl => {
+                        decl.symbol.nbtsDeprecated = true;
+                    });
+                }
+                if (node.symbol) node.symbol.nbtsDeprecated = true;
+                next = file.text.indexOf("@deprecated", next + 11) >>> 0;
+                if (next >= node.end) return;
+            }
+            forEachChild(node, visit);
+        });
+    };
+    ts.getNodeModifiers = function(node) {
+        var result = getNodeModifiers(node);
+        if (node.symbol && node.symbol.nbtsDeprecated) {
+            result += (result && ",") + "deprecated";
+        }
+        return result;
+    };
+}
+
 import SK = ts.SyntaxKind;
 import SEK = ts.ScriptElementKind;
 
@@ -345,7 +391,7 @@ class Program {
                     }
                 }
                 if (symbol) {
-                    if (symbol.flags & ts.SymbolFlags.Deprecated) {
+                    if (symbol.nbtsDeprecated) {
                         highlightIdent(node, 'DEPRECATED');
                     }
 
@@ -400,7 +446,7 @@ class Program {
                     break;
                 case SK.ImportSpecifier:
                 case SK.ExportSpecifier:
-                    if (typeInfoResolver.getAliasedSymbol(node.symbol).flags & ts.SymbolFlags.Deprecated) {
+                    if (typeInfoResolver.getAliasedSymbol(node.symbol).nbtsDeprecated) {
                         highlightIdent(node.propertyName || node.name, 'DEPRECATED');
                     }
                     break;
