@@ -1,6 +1,6 @@
 --- compiler/checker.ts
 +++ compiler/checker.ts
-@@ -2184,6 +2184,13 @@
+@@ -2218,6 +2218,13 @@
                          appendSymbolNameOnly(symbol, writer);
                      }
                      parentSymbol = symbol;
@@ -50,7 +50,7 @@
  
 --- services/types.ts
 +++ services/types.ts
-@@ -560,6 +560,7 @@
+@@ -575,6 +575,7 @@
          kind: string;            // see ScriptElementKind
          kindModifiers: string;   // see ScriptElementKindModifier, comma separated
          sortText: string;

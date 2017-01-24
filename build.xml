@@ -8,7 +8,7 @@
 
     <!-- Paths to the TypeScript installation to copy files from, and the Node.js executable to
          use while building. Adjust these according to your own environment. -->
-    <property name="typescript" value="${env.HOME}/TypeScript-2.1.4"/>
+    <property name="typescript" value="${env.HOME}/TypeScript-2.1.5"/>
     <property name="node.executable" value="node"/>
 
     <target name="compile" depends="projectized-common.compile">
