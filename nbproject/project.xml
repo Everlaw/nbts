@@ -232,7 +232,7 @@
             </module-dependencies>
             <public-packages/>
             <extra-compilation-unit>
-                <package-root>ts</package-root>
+                <package-root>server</package-root>
                 <classpath/>
             </extra-compilation-unit>
         </data>

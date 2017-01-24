@@ -1,0 +1,8 @@
+#!/bin/sh -e
+cd "$0/.."
+diff -ru "$(cat ts/installdir)/src" ts | perl -ne '
+	next if /^(Only in |diff )/;
+	s!^--- .*?/src/(.*)\t.*!--- \1!;
+	s!^\+\+\+ ts/(.*)\t.*!+++ \1!;
+	print;
+' > ts-patches

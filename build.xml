@@ -1,33 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- You may freely edit this file. See harness/README in the NetBeans platform -->
-<!-- for some information on what you could do (e.g. targets to override). -->
-<!-- If you delete this file and reopen the project it will be recreated. -->
 <project basedir="." default="netbeans" name="netbeanstypescript">
     <description>Builds, tests, and runs the project netbeanstypescript.</description>
+    <property environment="env"/>
+
+    <!-- If this line fails, open the project in NetBeans to create nbproject/private files. -->
     <import file="nbproject/build-impl.xml"/>
 
-    <property environment="env"/>
+    <!-- Paths to the TypeScript installation to copy files from, and the Node.js executable to
+         use while building. Adjust these according to your own environment. -->
     <property name="typescript" value="${env.HOME}/TypeScript-2.1.4"/>
+    <property name="node.executable" value="node"/>
 
     <target name="compile" depends="projectized-common.compile">
-        <copy todir="${build.classes.dir}/netbeanstypescript/lib/">
-            <fileset dir="${typescript}/lib">
-                <include name="lib*.d.ts"/>
-            </fileset>
+        <copy todir="${build.classes.dir}/netbeanstypescript/lib">
+            <fileset dir="${typescript}/lib" includes="lib*.d.ts"/>
         </copy>
     </target>
 
-    <target name="compile-ts-services-check">
+    <target name="copy-ts.check">
+        <loadfile srcFile="server/ts/installdir" property="typescript.stored" failonerror="false"/>
+        <condition property="copy-ts.uptodate">
+            <and>
+                <equals arg1="${typescript.stored}" arg2="${typescript}"/>
+                <uptodate property="copy-ts.uptodate" targetfile="server/ts/valid">
+                    <srcfiles dir="${typescript}/src"/>
+                    <srcfiles file="server/ts-patches"/>
+                </uptodate>
+            </and>
+        </condition>
+    </target>
+    <target name="copy-ts" depends="copy-ts.check" unless="copy-ts.uptodate">
+        <delete dir="server/ts"/>
+        <copy todir="server/ts">
+            <fileset dir="${typescript}/src">
+                <include name="compiler/**/*.ts"/>
+                <include name="compiler/diagnosticMessages.json"/>
+                <include name="services/**/*.ts"/>
+            </fileset>
+        </copy>
+        <echo file="server/ts/installdir">${typescript}</echo>
+        <!-- When upgrading to a new version of TypeScript, applying these patches may fail. The
+             patch command will create .rej files for those patches that could not be applied. Apply
+             them manually and then run ./server/save-ts-patches. -->
+        <patch patchfile="server/ts-patches" strip="0" dir="server/ts" failonerror="true"/>
+        <echo>Building processDiagnosticMessages.js</echo>
+        <exec executable="${typescript}/bin/tsc" failonerror="true">
+            <arg value="${typescript}/scripts/processDiagnosticMessages.ts"/>
+            <arg value="--outFile"/>
+            <arg value="build/processDiagnosticMessages.js"/>
+            <arg value="--noEmitOnError"/>
+        </exec>
+        <echo>Processing diagnostic messages</echo>
+        <exec executable="${node.executable}" failonerror="true">
+            <arg value="build/processDiagnosticMessages.js"/>
+            <arg value="server/ts/compiler/diagnosticMessages.json"/>
+        </exec>
+        <touch file="server/ts/valid"/>
+    </target>
+    <target name="clean" depends="projectized-common.clean">
+        <delete dir="server/ts"/>
+    </target>
+
+    <target name="compile-ts-services-check" depends="basic-init,copy-ts">
         <uptodate property="compile-ts-services.uptodate" targetfile="${cluster}/nbts-services.js">
-            <srcfiles dir="ts"/>
+            <srcfiles dir="server"/>
         </uptodate>
     </target>
     <target name="netbeans-extra" depends="compile-ts-services-check" unless="compile-ts-services.uptodate">
         <echo>Building nbts-services.js</echo>
         <exec executable="${typescript}/bin/tsc" failonerror="true">
-            <arg value="ts/main.ts"/>
-            <arg value="--removeComments"/>
-            <arg value="--out"/>
+            <arg value="--project"/>
+            <arg value="server"/>
+            <arg value="--outFile"/>
             <arg value="${cluster}/nbts-services.js"/>
             <arg value="--noEmitOnError"/>
         </exec>

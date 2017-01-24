@@ -1,0 +1,8 @@
+{
+    "compilerOptions": {
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "removeComments": true
+    },
+    "files": ["main.ts"]
+}

@@ -1,6 +1,6 @@
 The Java component of this project (src/*) is dual-licensed under the CDDL
 Version 1.0 and GPL Version 2 with Classpath Exception. The JavaScript component
-(ts/*) and lib*.d.ts files are licensed under the Apache License 2.0.
+(server/*) and lib*.d.ts files are licensed under the Apache License 2.0.
 
 --------------------------------------------------------------------------------
 

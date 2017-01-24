@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-/// <reference path="services/services.ts"/>
-/// <reference path="compiler/commandLineParser.ts"/>
+/// <reference path="ts/services/services.ts"/>
 import SK = ts.SyntaxKind;
 import SEK = ts.ScriptElementKind;
 
