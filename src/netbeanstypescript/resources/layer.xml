@@ -24,6 +24,9 @@
                         </file>
                     </folder>
                 </folder>
+                <folder name="CodeTemplateFilterFactories">
+                    <file name="netbeanstypescript-TSCodeCompletion$TemplateFilterFactory.instance"/>
+                </folder>
                 <folder name="Popup">
                     <file name="org-netbeans-modules-refactoring-api-ui-WhereUsedAction.shadow">
                         <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-refactoring-api-ui-WhereUsedAction.instance"/>

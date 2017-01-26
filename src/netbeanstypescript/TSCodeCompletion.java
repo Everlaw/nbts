@@ -38,6 +38,7 @@
 package netbeanstypescript;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,10 +47,11 @@ import javax.swing.text.JTextComponent;
 import netbeanstypescript.api.lexer.JsTokenId;
 import netbeanstypescript.api.lexer.LexUtilities;
 import netbeanstypescript.options.OptionsUtils;
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.netbeans.api.lexer.TokenId;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.lib.editor.codetemplates.api.CodeTemplate;
+import org.netbeans.lib.editor.codetemplates.spi.CodeTemplateFilter;
 import org.netbeans.modules.csl.api.*;
 import org.netbeans.modules.csl.spi.DefaultCompletionResult;
 import org.netbeans.modules.csl.spi.ParserResult;
@@ -124,24 +126,37 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         }
     }
 
+    static long lastCompletionTime;
+    static JSONObject lastCompletionResult;
+
     @Override
     public CodeCompletionResult complete(CodeCompletionContext ccc) {
         FileObject fileObj = ccc.getParserResult().getSnapshot().getSource().getFileObject();
         int caretOffset = ccc.getCaretOffset();
         String prefix = ccc.getPrefix();
-        JSONObject info = (JSONObject) TSService.call("getCompletions", fileObj, caretOffset,
-                prefix, ccc.isPrefixMatch(), ccc.isCaseSensitive());
+        if (! ccc.isCaseSensitive()) prefix = prefix.toLowerCase();
+        JSONObject info;
+        synchronized (TSCodeCompletion.class) {
+            info = (JSONObject) TSService.call("getCompletions", fileObj, caretOffset);
+            lastCompletionTime = System.currentTimeMillis();
+            lastCompletionResult = info;
+            TSCodeCompletion.class.notify();
+        }
         if (info == null) {
             return CodeCompletionResult.NONE;
         }
 
         List<CompletionProposal> lst = new ArrayList<>();
-        for (Object ent: (JSONArray) info.get("entries")) {
-            lst.add(new TSCodeCompletion.TSCompletionProposal(
-                    fileObj,
-                    caretOffset,
-                    caretOffset - prefix.length(),
-                    (JSONObject) ent));
+        for (JSONObject entry: (List<JSONObject>) info.get("entries")) {
+            String name = (String) entry.get("name");
+            if (! ccc.isCaseSensitive()) name = name.toLowerCase();
+            if (ccc.isPrefixMatch() ? name.startsWith(prefix) : name.equals(prefix)) {
+                lst.add(new TSCodeCompletion.TSCompletionProposal(
+                        fileObj,
+                        caretOffset,
+                        caretOffset - prefix.length(),
+                        entry));
+            }
         }
         return new DefaultCompletionResult(lst, false);
     }
@@ -230,5 +245,38 @@ public class TSCodeCompletion implements CodeCompletionHandler {
     public ParameterInfo parameters(ParserResult pr, int i, CompletionProposal cp) {
         return ParameterInfo.NONE;
     }
-    
+
+    public static class TemplateFilterFactory implements CodeTemplateFilter.ContextBasedFactory {
+        @Override
+        public CodeTemplateFilter createFilter(JTextComponent component, int offset) {
+            JSONObject result;
+            // We need the result from .complete(), but it's running in a different thread.
+            // Assume that the two synchronized blocks are entered within 50ms of each other.
+            synchronized (TSCodeCompletion.class) {
+                if (lastCompletionTime < System.currentTimeMillis() - 50) {
+                    try {
+                        // .complete() has not yet entered its sync block; wait for it.
+                        TSCodeCompletion.class.wait(50);
+                        // Unless something horrible happened, at this point .complete() has
+                        // finished its sync block, setting lastCompletionResult.
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                result = lastCompletionResult;
+                lastCompletionResult = null;
+            }
+            final boolean accept = result != null &&
+                    Boolean.TRUE.equals(result.get("isGlobalCompletion"));
+
+            return new CodeTemplateFilter() {
+                @Override public boolean accept(CodeTemplate template) { return accept; }
+            };
+        }
+
+        @Override
+        public List<String> getSupportedContexts() {
+            return Collections.singletonList("JavaScript-Code");
+        }
+    }
 }

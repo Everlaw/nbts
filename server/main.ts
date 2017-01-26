@@ -257,23 +257,9 @@ class Program {
         }
         return { errs, metaErrors };
     }
-    getCompletions(fileName: string, position: number, prefix: string, isPrefixMatch: boolean, caseSensitive: boolean) {
+    getCompletions(fileName: string, position: number) {
         if (! this.fileInProject(fileName)) return null;
-        var service = this.service;
-        var info = service.getCompletionsAtPosition(fileName, position);
-        if (! caseSensitive) prefix = prefix.toLowerCase();
-        if (info) {
-            return {
-                isMemberCompletion: info.isMemberCompletion,
-                entries: info.entries.filter(function(e) {
-                    var name = e.name;
-                    if (isPrefixMatch) name = name.substr(0, prefix.length);
-                    if (! caseSensitive) name = name.toLowerCase();
-                    return name === prefix;
-                })
-            };
-        }
-        return info;
+        return this.service.getCompletionsAtPosition(fileName, position);
     }
     getCompletionEntryDetails(fileName: string, position: number, entryName: string) {
         if (! this.fileInProject(fileName)) return null;
