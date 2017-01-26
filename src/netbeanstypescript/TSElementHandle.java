@@ -117,4 +117,8 @@ public class TSElementHandle extends TSNameKindModifiers implements ElementHandl
     public boolean signatureEquals(ElementHandle eh) { return false; }
     @Override
     public OffsetRange getOffsetRange(ParserResult pr) { return textSpan; }
+
+    public String document() {
+        return displayParts + (documentation.isEmpty() ? "" : "<p>") + documentation;
+    }
 }

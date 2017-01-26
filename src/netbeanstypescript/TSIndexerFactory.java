@@ -40,6 +40,8 @@ package netbeanstypescript;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.prefs.Preferences;
+import org.netbeans.api.progress.ProgressHandle;
+import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
@@ -131,6 +133,12 @@ public class TSIndexerFactory extends CustomIndexerFactory {
             guiSetting = "true".equals(prefs.get("compileOnSave", null));
         }
         TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
-        CompileAction.writeEmitOutput(TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
+        ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript compile on save");
+        progress.start();
+        try {
+            CompileAction.writeEmitOutput(TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
+        } finally {
+            progress.finish();
+        }
     }
 }

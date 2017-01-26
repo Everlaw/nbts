@@ -63,7 +63,7 @@ import org.openide.filesystems.FileObject;
  */
 public class TSCodeCompletion implements CodeCompletionHandler {
 
-    public static class TSCompletionProposal extends TSNameKindModifiers implements CompletionProposal {
+    public static class TSCompletionProposal extends TSElementHandle implements CompletionProposal {
         FileObject fileObj;
         int caretOffset;
         int anchorOffset;
@@ -71,7 +71,7 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         String type;
 
         TSCompletionProposal(FileObject fileObj, int caretOffset, int anchorOffset, JSONObject m) {
-            super(m);
+            super(OffsetRange.NONE, m);
             this.fileObj = fileObj;
             this.caretOffset = caretOffset;
             this.anchorOffset = anchorOffset;
@@ -81,9 +81,11 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         @Override
         public int getAnchorOffset() { return anchorOffset; }
         @Override
-        public ElementHandle getElement() {
+        public ElementHandle getElement() { return this; }
+        @Override
+        public String document() {
             Object info = TSService.call("getCompletionEntryDetails", fileObj, caretOffset, name);
-            return info == null ? null : new TSElementHandle(OffsetRange.NONE, (JSONObject) info);
+            return info == null ? null : new TSElementHandle(OffsetRange.NONE, (JSONObject) info).document();
         }
         @Override
         public String getInsertPrefix() { return name; }
@@ -163,8 +165,7 @@ public class TSCodeCompletion implements CodeCompletionHandler {
 
     @Override
     public String document(ParserResult pr, ElementHandle eh) {
-        TSElementHandle teh = (TSElementHandle) eh;
-        return teh.displayParts + (teh.documentation.isEmpty() ? "" : "<p>") + teh.documentation;
+        return ((TSElementHandle) eh).document();
     }
 
     @Override

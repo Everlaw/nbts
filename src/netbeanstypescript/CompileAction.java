@@ -43,10 +43,13 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 import java.util.logging.Level;
 import javax.swing.AbstractAction;
 import org.json.simple.JSONObject;
+import org.netbeans.api.progress.ProgressHandle;
+import org.netbeans.api.progress.ProgressHandleFactory;
 import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
 import org.openide.filesystems.FileObject;
@@ -65,9 +68,23 @@ public class CompileAction extends AbstractAction {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        for (FileObject fileObj: Utilities.actionsGlobalContext().lookupAll(FileObject.class)) {
-            writeEmitOutput(TSService.call("getEmitOutput", fileObj));
-        }
+        final Collection<? extends FileObject> fileObjects =
+                Utilities.actionsGlobalContext().lookupAll(FileObject.class);
+        // getEmitOutput may take a while, especially if outFile is being used. Don't block the UI
+        TSService.RP.post(new Runnable() {
+            @Override
+            public void run() {
+                ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript compile");
+                progress.start();
+                try {
+                    for (FileObject fileObj: fileObjects) {
+                        writeEmitOutput(TSService.call("getEmitOutput", fileObj));
+                    }
+                } finally {
+                    progress.finish();
+                }
+            }
+        });
     }
 
     public static void writeEmitOutput(Object res) {
