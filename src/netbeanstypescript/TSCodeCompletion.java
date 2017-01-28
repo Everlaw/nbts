@@ -48,6 +48,7 @@ import netbeanstypescript.api.lexer.JsTokenId;
 import netbeanstypescript.api.lexer.LexUtilities;
 import netbeanstypescript.options.OptionsUtils;
 import org.json.simple.JSONObject;
+import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenId;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.lib.editor.codetemplates.api.CodeTemplate;
@@ -128,22 +129,13 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         }
     }
 
-    static long lastCompletionTime;
-    static JSONObject lastCompletionResult;
-
     @Override
     public CodeCompletionResult complete(CodeCompletionContext ccc) {
         FileObject fileObj = ccc.getParserResult().getSnapshot().getSource().getFileObject();
         int caretOffset = ccc.getCaretOffset();
         String prefix = ccc.getPrefix();
         if (! ccc.isCaseSensitive()) prefix = prefix.toLowerCase();
-        JSONObject info;
-        synchronized (TSCodeCompletion.class) {
-            info = (JSONObject) TSService.call("getCompletions", fileObj, caretOffset);
-            lastCompletionTime = System.currentTimeMillis();
-            lastCompletionResult = info;
-            TSCodeCompletion.class.notify();
-        }
+        JSONObject info = (JSONObject) TSService.call("getCompletions", fileObj, caretOffset);
         if (info == null) {
             return CodeCompletionResult.NONE;
         }
@@ -249,30 +241,29 @@ public class TSCodeCompletion implements CodeCompletionHandler {
 
     public static class TemplateFilterFactory implements CodeTemplateFilter.ContextBasedFactory {
         @Override
-        public CodeTemplateFilter createFilter(JTextComponent component, int offset) {
-            JSONObject result;
-            // We need the result from .complete(), but it's running in a different thread.
-            // Assume that the two synchronized blocks are entered within 50ms of each other.
-            synchronized (TSCodeCompletion.class) {
-                if (lastCompletionTime < System.currentTimeMillis() - 50) {
-                    try {
-                        // .complete() has not yet entered its sync block; wait for it.
-                        TSCodeCompletion.class.wait(50);
-                        // Unless something horrible happened, at this point .complete() has
-                        // finished its sync block, setting lastCompletionResult.
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
+        public CodeTemplateFilter createFilter(JTextComponent component, final int offset) {
+            final Document doc = component.getDocument();
+            class F implements Runnable, CodeTemplateFilter {
+                private boolean accept;
+                @Override public void run() {
+                    TokenSequence<JsTokenId> ts = TokenHierarchy.get(doc)
+                            .tokenSequence(JsTokenId.javascriptLanguage());
+                    ts.move(offset);
+                    // Don't complete templates if inside a string literal (import)
+                    if (ts.moveNext() && ts.token().id() == JsTokenId.STRING) return;
+                    // Don't complete templates if in a property access
+                    JsTokenId id = null;
+                    while (ts.movePrevious() &&
+                            (id = ts.token().id()).primaryCategory().equals("whitespace")) {}
+                    accept = id != JsTokenId.OPERATOR_DOT;
                 }
-                result = lastCompletionResult;
-                lastCompletionResult = null;
+                @Override public boolean accept(CodeTemplate ct) {
+                    return accept;
+                }
             }
-            final boolean accept = result != null &&
-                    Boolean.TRUE.equals(result.get("isGlobalCompletion"));
-
-            return new CodeTemplateFilter() {
-                @Override public boolean accept(CodeTemplate template) { return accept; }
-            };
+            F filter = new F();
+            doc.render(filter);
+            return filter;
         }
 
         @Override
