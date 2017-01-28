@@ -267,7 +267,9 @@ public class TSCodeCompletion implements CodeCompletionHandler {
                 result = lastCompletionResult;
                 lastCompletionResult = null;
             }
-            final boolean accept = result != null &&
+            // This method is also called when expanding a template with tab, in which case
+            // there is no completion going on, result is null, and we need to accept.
+            final boolean accept = result == null ||
                     Boolean.TRUE.equals(result.get("isGlobalCompletion"));
 
             return new CodeTemplateFilter() {
