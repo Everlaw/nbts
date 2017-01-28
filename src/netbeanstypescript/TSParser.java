@@ -59,9 +59,14 @@ public class TSParser extends Parser {
     public void parse(Snapshot snapshot, Task task, SourceModificationEvent event) throws ParseException {
         TSService.updateFile(snapshot);
         result = new ParserResult(snapshot) {
+            private List<? extends Error> diagnostics = null;
+
             @Override
-            public List<? extends Error> getDiagnostics() {
-                return TSService.getDiagnostics(getSnapshot());
+            public synchronized List<? extends Error> getDiagnostics() {
+                if (diagnostics == null) {
+                    diagnostics = TSService.getDiagnostics(getSnapshot());
+                }
+                return diagnostics;
             }
 
             @Override
