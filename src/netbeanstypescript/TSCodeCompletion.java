@@ -81,7 +81,12 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         @Override
         public int getAnchorOffset() { return anchorOffset; }
         @Override
-        public ElementHandle getElement() { return this; }
+        public ElementHandle getElement() {
+            // Keywords don't have documentation or location info. Calling getCompletionEntryDetails
+            // may show irrelevant info about a symbol with the same name.
+            // https://github.com/Microsoft/TypeScript/issues/3921
+            return kind == ElementKind.KEYWORD ? null : this;
+        }
         @Override
         public String document() {
             Object info = TSService.call("getCompletionEntryDetails", fileObj, caretOffset, name);
@@ -125,6 +130,28 @@ public class TSCodeCompletion implements CodeCompletionHandler {
                 case PACKAGE: suffix = "/"; break;
             }
             return getInsertPrefix() + suffix;
+        }
+
+        private JSONObject location;
+        @Override
+        public FileObject getFileObject() {
+            location = (JSONObject) TSService.call("getCompletionEntryLocation",
+                    fileObj, caretOffset, name);
+            if (location == null) return null;
+            return TSService.findAnyFileObject((String) location.get("fileName"));
+        }
+        @Override
+        public String getMimeType() {
+            return "text/typescript";
+        }
+        @Override
+        public OffsetRange getOffsetRange(ParserResult pr) {
+            // This method only gets called when the location is in the same file that the
+            // completion was done in. Otherwise, csl.api's UiUtils.open just opens the file
+            // and doesn't set the offset, even though we have it. :(
+            if (location == null) return OffsetRange.NONE;
+            return new OffsetRange(((Number) location.get("start")).intValue(),
+                                   ((Number) location.get("end")).intValue());
         }
     }
 

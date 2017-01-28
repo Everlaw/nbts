@@ -265,6 +265,22 @@ class Program {
         if (! this.fileInProject(fileName)) return null;
         return this.service.getCompletionEntryDetails(fileName, position, entryName);
     }
+    getCompletionEntryLocation(fileName: string, position: number, entryName: string) {
+        if (! this.fileInProject(fileName)) return null;
+        var sym = this.service.getCompletionEntrySymbol(fileName, position, entryName);
+        if (sym) {
+            var decl = sym.declarations[0];
+            if (decl) {
+                var sourceFile = decl.getSourceFile();
+                return {
+                    fileName: sourceFile.fileName,
+                    start: ts.skipTrivia(sourceFile.text, decl.pos),
+                    end: decl.end
+                };
+            }
+        }
+        return null;
+    }
     getQuickInfoAtPosition(fileName: string, position: number) {
         if (! this.fileInProject(fileName)) return null;
         var quickInfo = this.service.getQuickInfoAtPosition(fileName, position);
