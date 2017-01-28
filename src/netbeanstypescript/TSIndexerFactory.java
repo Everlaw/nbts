@@ -89,7 +89,9 @@ public class TSIndexerFactory extends CustomIndexerFactory {
 
     @Override
     public void scanFinished(Context context) {
-        TSService.updateErrors(context.getRootURI());
+        if (! context.checkForEditorModifications()) {
+            TSService.updateErrors(context.getRootURI());
+        }
     }
 
     @Override
