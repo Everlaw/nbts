@@ -181,7 +181,7 @@ public class TSService {
                 stdin.write(code.getBytes(StandardCharsets.UTF_8));
                 stdin.flush();
                 while ((s = stdout.readLine()) != null && s.charAt(0) == 'L') {
-                    log.fine((String) JSONValue.parseWithException(s.substring(1)));
+                    log.info((String) JSONValue.parseWithException(s.substring(1)));
                 }
             } catch (Exception e) {
                 error = "Error communicating with Node.js process."
@@ -470,9 +470,13 @@ public class TSService {
                 int category = ((Number) err.get("category")).intValue();
                 int code = ((Number) err.get("code")).intValue();
                 boolean fix = nodejs.supportedCodeFixes.contains(code);
-                errors.add(new DefaultError(fix ? Integer.toString(code) : null, messageText, null,
+                DefaultError error = new DefaultError(fix ? Integer.toString(code) : null, messageText, null,
                         fo, start, start + length, false,
-                        category == 0 ? Severity.WARNING : Severity.ERROR));
+                        category == 0 ? Severity.WARNING : Severity.ERROR);
+                if (err.get("fix") != null) {
+                    error.setParameters(((List<?>) err.get("fix")).toArray());
+                }
+                errors.add(error);
             }
             return errors;
         } finally {

@@ -66,6 +66,7 @@ import SEK = ts.ScriptElementKind;
 
 // Node.js stuff
 declare var require: any;
+declare var module: any;
 declare module process { var stdin: any, stdout: any; }
 declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
@@ -77,6 +78,15 @@ var implicitAnyErrors: {[code: number]: boolean} = {};
         implicitAnyErrors[code] = true;
     }
 });
+
+var mp = Object.getPrototypeOf(module);
+var realRequire = mp.require;
+mp.require = function(this: any, path: string) {
+    if (path === "typescript") return ts;
+    return realRequire.apply(this, arguments);
+}
+
+var Linter = require("/dev/shm/node_modules/tslint/lib/linter");
 
 class HostImpl implements ts.LanguageServiceHost {
     version = 0;
@@ -247,13 +257,39 @@ class Program {
                 : diag.category,
             code: diag.code
         });
-        var errs = this.service.getSyntacticDiagnostics(fileName).map(mapDiag);
+        var errs: any[] = this.service.getSyntacticDiagnostics(fileName).map(mapDiag);
         try {
             // In case there are bugs in the type checker, make sure we can handle it throwing an
             // exception and still show the syntactic errors.
             errs = errs.concat(this.service.getSemanticDiagnostics(fileName).map(mapDiag));
         } catch (e) {
             metaErrors.push("Error in getSemanticDiagnostics\n\n" + e.stack);
+        }
+        try {
+            var t1 = Date.now();
+            this.host.log("Lint begin");
+            var linter = new Linter({ fix: false }, this.service.getProgram());
+            linter.lint(fileName, null);
+            var lintResult = linter.getResult();
+            ts.forEach(lintResult.failures, (f: any) => {
+                var start = f.getStartPosition(), startPos = start.getPosition();
+                var fix = f.getFix();
+                errs.push({
+                    line: start.getLineAndCharacter().line,
+                    start: startPos,
+                    length: f.getEndPosition().getPosition() - startPos,
+                    messageText: f.getFailure(),
+                    category: ts.DiagnosticCategory.Warning,
+                    code: 0, //f.getRuleName()
+                    fix: [fix.ruleName, fix.replacements.map((repl: any): ts.TextChange => ({
+                        span: { start: repl.start, length: repl.length },
+                        newText: repl.text
+                    }))]
+                });
+            });
+            this.host.log("Lint end: " + (Date.now() - t1));
+        } catch (e) {
+            metaErrors.push("Error in lint\n\n" + e.stack);
         }
         return { errs, metaErrors };
     }

@@ -2,6 +2,7 @@
     "compilerOptions": {
         "noImplicitAny": true,
         "noImplicitThis": true,
+        "preserveConstEnums": true, // tslint needs to access ts.SyntaxKind.*
         "removeComments": true
     },
     "files": ["main.ts"]

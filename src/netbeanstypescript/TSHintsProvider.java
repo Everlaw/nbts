@@ -38,6 +38,7 @@
 package netbeanstypescript;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -148,12 +149,57 @@ public class TSHintsProvider implements HintsProvider {
     @Override
     public void computeSelectionHints(HintsManager manager, RuleContext context, List<Hint> suggestions, int start, int end) {}
 
+    private static final Rule tsLintRule = new Rule() {
+        @Override
+        public boolean appliesTo(RuleContext rc) { return false; }
+        @Override
+        public String getDisplayName() { return "rule - display name"; }
+        @Override
+        public boolean showInTasklist() { return false; }
+        @Override
+        public HintSeverity getDefaultSeverity() { return HintSeverity.WARNING; }
+    };
+
     @Override
-    public void computeErrors(HintsManager manager, RuleContext context, List<Hint> hints, List<Error> unhandled) {
-        // There may be relevant code fixes, but we can't query code fixes without fully computing
-        // their diffs, which is potentially too expensive to do for all errors in the file.
-        // So we provide code fixes as "suggestions" instead.
-        unhandled.addAll(context.parserResult.getDiagnostics());
+    public void computeErrors(HintsManager manager, final RuleContext context, List<Hint> hints, List<Error> unhandled) {
+        for (final Error error: context.parserResult.getDiagnostics()) {
+            if (error.getParameters() != null) {
+                HintFix hf = new HintFix() {
+                    @Override
+                    public String getDescription() {
+                        return "tslint fix: " + (String) error.getParameters()[0];
+                    }
+                    @Override
+                    public void implement() throws Exception {
+                        context.doc.runAtomic(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    TSFormatter.applyEdits(context.doc, error.getParameters()[1]);
+                                } catch (BadLocationException ex) {
+                                    Exceptions.printStackTrace(ex);
+                                }
+                            }
+                        });
+                    }
+                    @Override
+                    public boolean isSafe() { return false; }
+                    @Override
+                    public boolean isInteractive() { return false; }
+                };
+                hints.add(new Hint(tsLintRule,
+                        error.getDisplayName(),
+                        error.getFile(),
+                        new OffsetRange(error.getStartPosition(), error.getEndPosition()),
+                        Arrays.asList(hf),
+                        0));
+            } else {
+                // There may be relevant code fixes, but we can't query code fixes without fully computing
+                // their diffs, which is potentially too expensive to do for all errors in the file.
+                // So we provide code fixes as "suggestions" instead.
+                unhandled.add(error);
+            }
+        }
     }
 
     @Override
