@@ -186,7 +186,7 @@ class SnapshotImpl implements ts.IScriptSnapshot {
     getChangeRange(oldSnapshot: SnapshotImpl): ts.TextChangeRange {
         var newText = this.text, oldText = oldSnapshot.text;
         var newEnd = newText.length, oldEnd = oldText.length;
-        while (newEnd > 0 && oldEnd > 0 && newText.charCodeAt(newEnd) === oldText.charCodeAt(oldEnd)) {
+        while (newEnd > 0 && oldEnd > 0 && newText.charCodeAt(newEnd - 1) === oldText.charCodeAt(oldEnd - 1)) {
             newEnd--;
             oldEnd--;
         }
