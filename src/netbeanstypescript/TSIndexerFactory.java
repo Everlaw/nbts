@@ -138,7 +138,8 @@ public class TSIndexerFactory extends CustomIndexerFactory {
         ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript compile on save");
         progress.start();
         try {
-            CompileAction.writeEmitOutput(TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
+            CompileAction.writeEmitOutput(fileObject,
+                    TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
         } finally {
             progress.finish();
         }

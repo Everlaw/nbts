@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.logging.Level;
@@ -50,10 +51,18 @@ import javax.swing.AbstractAction;
 import org.json.simple.JSONObject;
 import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.api.progress.ProgressHandleFactory;
+import org.netbeans.modules.parsing.api.ParserManager;
+import org.netbeans.modules.parsing.api.ResultIterator;
+import org.netbeans.modules.parsing.api.Source;
+import org.netbeans.modules.parsing.api.UserTask;
+import org.netbeans.modules.parsing.spi.ParseException;
 import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
+import org.openide.awt.StatusDisplayer;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
+import org.openide.util.RequestProcessor;
 import org.openide.util.Utilities;
 
 /**
@@ -63,31 +72,40 @@ import org.openide.util.Utilities;
 public class CompileAction extends AbstractAction {
 
     public CompileAction() {
-        putValue(NAME, "Compile File");
+        super("Compile File");
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         final Collection<? extends FileObject> fileObjects =
                 Utilities.actionsGlobalContext().lookupAll(FileObject.class);
-        // getEmitOutput may take a while, especially if outFile is being used. Don't block the UI
-        TSService.RP.post(new Runnable() {
+        class CompileTask extends UserTask implements Runnable {
             @Override
             public void run() {
                 ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript compile");
                 progress.start();
                 try {
+                    List<Source> sources = new ArrayList<>(fileObjects.size());
                     for (FileObject fileObj: fileObjects) {
-                        writeEmitOutput(TSService.call("getEmitOutput", fileObj));
+                        sources.add(Source.create(fileObj));
                     }
+                    ParserManager.parse(sources, this);
+                } catch (ParseException e) {
+                    Exceptions.printStackTrace(e);
                 } finally {
                     progress.finish();
                 }
             }
-        });
+            @Override
+            public void run(ResultIterator ri) throws ParseException {
+                FileObject fileObj = ri.getParserResult().getSnapshot().getSource().getFileObject();
+                writeEmitOutput(fileObj, TSService.call("getEmitOutput", fileObj));
+            }
+        }
+        RequestProcessor.getDefault().post(new CompileTask());
     }
 
-    public static void writeEmitOutput(Object res) {
+    public static void writeEmitOutput(FileObject src, Object res) {
         if (res == null) {
             return;
         }
@@ -96,20 +114,19 @@ public class CompileAction extends AbstractAction {
             boolean writeBOM = Boolean.TRUE.equals(file.get("writeByteOrderMark"));
             String text = (String) file.get("text");
             TSService.log.log(Level.FINE, "Writing {0}", name);
-            try {
-                // Using the FileObject API instead of direct FS access ensures that the changes
-                // show up in the IDE quickly.
-                try (Writer w = new OutputStreamWriter(FileUtil.createData(new File(name)).getOutputStream(),
-                        StandardCharsets.UTF_8)) {
-                    if (writeBOM) w.write('\uFEFF');
-                    w.write(text);
-                }
+            // Using the FileObject API instead of direct FS access ensures that the changes
+            // show up in the IDE quickly.
+            try (Writer w = new OutputStreamWriter(FileUtil.createData(new File(name)).getOutputStream(),
+                    StandardCharsets.UTF_8)) {
+                if (writeBOM) w.write('\uFEFF');
+                w.write(text);
             } catch (IOException e) {
-                String error = "Compile on save: could not write file " + name + "\n" + e;
+                String error = "Could not write file " + name + "\n" + e;
                 DialogDisplayer.getDefault().notify(
                         new NotifyDescriptor.Message(error, NotifyDescriptor.ERROR_MESSAGE));
-                break;
+                return;
             }
         }
+        StatusDisplayer.getDefault().setStatusText(src.getNameExt() + " compiled.");
     }
 }
