@@ -37,19 +37,32 @@
  */
 package netbeanstypescript;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import javax.swing.text.Document;
 import netbeanstypescript.api.lexer.JsTokenId;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.netbeans.api.lexer.Language;
+import org.netbeans.api.lexer.Token;
+import org.netbeans.api.lexer.TokenHierarchy;
+import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.csl.api.DeclarationFinder;
 import org.netbeans.modules.csl.api.ElementHandle;
 import org.netbeans.modules.csl.api.HtmlFormatter;
 import org.netbeans.modules.csl.api.OffsetRange;
-import org.netbeans.modules.csl.spi.GsfUtilities;
 import org.netbeans.modules.csl.spi.ParserResult;
+import org.netbeans.modules.parsing.api.ParserManager;
+import org.netbeans.modules.parsing.api.ResultIterator;
+import org.netbeans.modules.parsing.api.Source;
+import org.netbeans.modules.parsing.api.UserTask;
+import org.netbeans.modules.parsing.spi.ParseException;
 import org.openide.filesystems.FileObject;
+import org.openide.util.RequestProcessor;
 
 /**
  *
@@ -57,26 +70,26 @@ import org.openide.filesystems.FileObject;
  */
 public class TSDeclarationFinder implements DeclarationFinder {
 
-    final Language<JsTokenId> language = JsTokenId.javascriptLanguage();
+    private final RequestProcessor RP = new RequestProcessor(TSDeclarationFinder.class.getName());
 
     @Override
     public DeclarationLocation findDeclaration(ParserResult info, int caretOffset) {
         FileObject fileObj = info.getSnapshot().getSource().getFileObject();
-        JSONObject quickInfo = (JSONObject) TSService.call("getQuickInfoAtPosition",
-                fileObj, caretOffset);
-        if (quickInfo == null) {
+        JSONArray defs = (JSONArray) TSService.call("getDefsAtPosition", fileObj, caretOffset);
+        if (defs == null) {
             return DeclarationLocation.NONE;
         }
-        TSElementHandle eh = new TSElementHandle(new OffsetRange(
-                ((Number) quickInfo.get("start")).intValue(),
-                ((Number) quickInfo.get("end")).intValue()), quickInfo);
+
+        TSElementHandle eh = null;
+        JSONObject quickInfo = (JSONObject) TSService.call("getQuickInfoAtPosition", fileObj, caretOffset);
+        if (quickInfo != null) {
+            eh = new TSElementHandle(new OffsetRange(
+                    ((Number) quickInfo.get("start")).intValue(),
+                    ((Number) quickInfo.get("end")).intValue()), quickInfo);
+        }
 
         DeclarationLocation allLocs = new DeclarationLocation(fileObj, caretOffset, eh);
 
-        JSONArray defs = (JSONArray) TSService.call("getDefsAtPosition", fileObj, caretOffset);
-        if (defs == null) {
-            return allLocs;
-        }
         for (final JSONObject def: (List<JSONObject>) defs) {
             final String destFileName = (String) def.get("fileName");
             FileObject destFileObj = TSService.findAnyFileObject(destFileName);
@@ -118,15 +131,67 @@ public class TSDeclarationFinder implements DeclarationFinder {
         return allLocs;
     }
 
+    private final Set<String> possibleRefs = new HashSet<>(Arrays.asList(
+            "comment", "identifier", "keyword", "string"));
+
     @Override
-    public OffsetRange getReferenceSpan(final Document doc, int caretOffset) {
-        JSONObject quickInfo = (JSONObject) TSService.call("getQuickInfoAtPosition",
-                GsfUtilities.findFileObject(doc), caretOffset);
-        if (quickInfo == null) {
+    public OffsetRange getReferenceSpan(final Document doc, final int caretOffset) {
+        final OffsetRange[] tokenRange = new OffsetRange[1];
+        doc.render(new Runnable() {
+            @Override public void run() {
+                TokenSequence<?> ts = TokenHierarchy.get(doc)
+                        .tokenSequence(JsTokenId.javascriptLanguage());
+                int offsetWithinToken = ts.move(caretOffset);
+                if (ts.moveNext()) {
+                    Token<?> tok = ts.token();
+                    if (possibleRefs.contains(tok.id().primaryCategory())) {
+                        int start = caretOffset - offsetWithinToken;
+                        tokenRange[0] = new OffsetRange(start, start + tok.length());
+                        return;
+                    }
+                }
+                // If we're right between two tokens, check the previous
+                if (offsetWithinToken == 0 && ts.movePrevious()) {
+                    Token<?> tok = ts.token();
+                    if (possibleRefs.contains(tok.id().primaryCategory())) {
+                        tokenRange[0] = new OffsetRange(caretOffset - tok.length(), caretOffset);
+                    }
+                }
+            }
+        });
+        if (tokenRange[0] == null) {
             return OffsetRange.NONE;
         }
-        return new OffsetRange(
-                ((Number) quickInfo.get("start")).intValue(),
-                ((Number) quickInfo.get("end")).intValue());
+
+        // Now query the language service to see if this is actually a reference
+        final AtomicBoolean isReference = new AtomicBoolean();
+        class ReferenceSpanTask extends UserTask implements Runnable {
+            @Override
+            public void run() {
+                try {
+                    ParserManager.parse(Collections.singleton(Source.create(doc)), this);
+                } catch (ParseException e) {
+                    TSService.log.log(Level.WARNING, null, e);
+                }
+            }
+            @Override
+            public void run(ResultIterator ri) throws ParseException {
+                // Calling ResultIterator#getParserResult() ensures latest snapshot pushed to server
+                Object defs = TSService.call("getDefsAtPosition",
+                        ri.getParserResult().getSnapshot().getSource().getFileObject(),
+                        caretOffset);
+                isReference.set(defs != null);
+            }
+        }
+        // Don't block the UI thread for too long in case server is busy
+        RequestProcessor.Task task = RP.post(new ReferenceSpanTask());
+        try {
+            task.waitFinished(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            task.cancel();
+        }
+        return isReference.get() ? tokenRange[0] : OffsetRange.NONE;
     }
 }
