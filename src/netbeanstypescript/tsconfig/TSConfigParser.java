@@ -374,6 +374,7 @@ public class TSConfigParser extends Parser {
                         valid = true;
                     }
                     break;
+                case "object": valid = value.properties != null; break;
             }
             if (! valid) {
                 res.addError("Compiler option '" + key + "' requires a value of type " + type + ".", value);

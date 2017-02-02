@@ -79,6 +79,8 @@ public class TSConfigCodeCompletion implements CodeCompletionHandler {
             JSONObject description = (JSONObject) obj.get("description");
             if (description != null) {
                 message = (String) description.get("message");
+            } else if (Boolean.TRUE.equals(obj.get("isTSConfigOnly"))) {
+                message = "No description available";
             } else {
                 hidden = true;
             }
