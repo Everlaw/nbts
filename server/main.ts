@@ -297,8 +297,9 @@ class Program {
     getDefsAtPosition(fileName: string, position: number) {
         if (! this.fileInProject(fileName)) return null;
         var defs = this.service.getDefinitionAtPosition(fileName, position);
+        var program = this.service.getProgram();
         return defs && defs.map(di => {
-            var sourceFile = this.service.getNonBoundSourceFile(di.fileName);
+            var sourceFile = program.getSourceFile(di.fileName);
             return {
                 fileName: di.fileName,
                 start: di.textSpan.start,
@@ -594,8 +595,9 @@ class Program {
     getReferencesAtPosition(fileName: string, position: number) {
         if (! this.fileInProject(fileName)) return null;
         var refs = this.service.getReferencesAtPosition(fileName, position);
+        var program = this.service.getProgram();
         return refs && refs.map(ref => {
-            var file = this.service.getNonBoundSourceFile(ref.fileName);
+            var file = program.getSourceFile(ref.fileName);
             var lineStarts = file.getLineStarts();
             var line = ts.computeLineAndCharacterOfPosition(lineStarts, ref.textSpan.start).line;
             return {
