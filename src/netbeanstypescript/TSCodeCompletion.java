@@ -156,7 +156,7 @@ public class TSCodeCompletion implements CodeCompletionHandler {
     }
 
     static long lastCompletionTime;
-    static JSONObject lastCompletionResult;
+    static boolean lastCompletionWasGlobal;
 
     @Override
     public CodeCompletionResult complete(CodeCompletionContext ccc) {
@@ -168,7 +168,7 @@ public class TSCodeCompletion implements CodeCompletionHandler {
         synchronized (TSCodeCompletion.class) {
             info = (JSONObject) TSService.call("getCompletions", fileObj, caretOffset);
             lastCompletionTime = System.currentTimeMillis();
-            lastCompletionResult = info;
+            lastCompletionWasGlobal = info != null && Boolean.TRUE.equals(info.get("isGlobalCompletion"));
             TSCodeCompletion.class.notify();
         }
         if (info == null) {
@@ -277,28 +277,32 @@ public class TSCodeCompletion implements CodeCompletionHandler {
     public static class TemplateFilterFactory implements CodeTemplateFilter.ContextBasedFactory {
         @Override
         public CodeTemplateFilter createFilter(JTextComponent component, int offset) {
-            JSONObject result;
-            // We need the result from .complete(), but it's running in a different thread.
-            // Assume that the two synchronized blocks are entered within 50ms of each other.
+            if (! Thread.currentThread().getName().equals("Code Completion")) {
+                // Called from AbbrevDetection or SurroundWithFix - just allow it
+                return createFilter(true);
+            }
+            // This is a code completion (called from CodeTemplateCompletionProvider). To determine
+            // whether code templates should show up, we need the result from .complete(), but it's
+            // running in a different thread. To make matters even worse, typing or backspacing
+            // characters during a completion may re-run this method without re-running .complete().
             synchronized (TSCodeCompletion.class) {
+                // Assume that if .complete() is called, the two synchronized blocks are entered
+                // within 50ms of each other.
                 if (lastCompletionTime < System.currentTimeMillis() - 50) {
                     try {
                         // .complete() has not yet entered its sync block; wait for it.
                         TSCodeCompletion.class.wait(50);
-                        // Unless something horrible happened, at this point .complete() has
-                        // finished its sync block, setting lastCompletionResult.
+                        // If it was called, it'll have finished its sync block now. If not, we're
+                        // still in the same completion and lastCompletionWasGlobal is still valid.
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
                 }
-                result = lastCompletionResult;
-                lastCompletionResult = null;
+                return createFilter(lastCompletionWasGlobal);
             }
-            // This method is also called when expanding a template with tab, in which case
-            // there is no completion going on, result is null, and we need to accept.
-            final boolean accept = result == null ||
-                    Boolean.TRUE.equals(result.get("isGlobalCompletion"));
+        }
 
+        private CodeTemplateFilter createFilter(final boolean accept) {
             return new CodeTemplateFilter() {
                 @Override public boolean accept(CodeTemplate template) { return accept; }
             };
