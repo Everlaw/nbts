@@ -62,6 +62,9 @@ public class TSIndexerFactory extends CustomIndexerFactory {
 
     @Override
     public boolean scanStarted(Context context) {
+        if (! context.checkForEditorModifications()) {
+            TSService.preIndex(context.getRootURI());
+        }
         return false;
     }
 
@@ -71,14 +74,15 @@ public class TSIndexerFactory extends CustomIndexerFactory {
 
             @Override
             protected void index(Iterable<? extends Indexable> files, Context context) {
+                FileObject root = context.getRoot();
+                if (root == null) {
+                    return;
+                }
                 for (Indexable indxbl: files) {
-                    FileObject fo = context.getRoot().getFileObject(indxbl.getRelativePath());
+                    FileObject fo = root.getFileObject(indxbl.getRelativePath());
                     if (fo == null) continue;
                     if ("text/typescript".equals(FileUtil.getMIMEType(fo))) {
                         TSService.addFile(Source.create(fo).createSnapshot(), indxbl, context);
-                        if (! context.isAllFilesIndexing() && ! context.checkForEditorModifications()) {
-                            compileIfEnabled(context.getRoot(), fo);
-                        }
                     } else if (fo.getNameExt().equals("tsconfig.json")) {
                         TSService.addFile(Source.create(fo).createSnapshot(), indxbl, context);
                     }
@@ -90,7 +94,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     @Override
     public void scanFinished(Context context) {
         if (! context.checkForEditorModifications()) {
-            TSService.updateErrors(context.getRootURI());
+            TSService.postIndex(context.getRootURI());
         }
     }
 
@@ -127,19 +131,21 @@ public class TSIndexerFactory extends CustomIndexerFactory {
         return 0;
     }
 
-    private void compileIfEnabled(FileObject root, FileObject fileObject) {
+    static void compileIfEnabled(FileObject root, FileObject[] fileObjects) {
         boolean guiSetting = false;
         Project project = FileOwnerQuery.getOwner(root);
         if (project != null) {
             Preferences prefs = ProjectUtils.getPreferences(project, TSProjectCustomizer.class, true);
             guiSetting = "true".equals(prefs.get("compileOnSave", null));
         }
-        TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
         ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript compile on save");
         progress.start();
         try {
-            CompileAction.writeEmitOutput(fileObject,
-                    TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
+            for (FileObject fileObject: fileObjects) {
+                TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
+                CompileAction.writeEmitOutput(fileObject,
+                        TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
+            }
         } finally {
             progress.finish();
         }

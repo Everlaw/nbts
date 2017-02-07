@@ -208,15 +208,18 @@ public class TSService {
     }
 
     private static class ProgramData {
+        final FileObject root;
         final String progVar;
         final Map<String, FileData> byRelativePath = new HashMap<>();
+        final List<FileObject> needCompileOnSave = new ArrayList<>();
         boolean needErrorsUpdate;
         Object currentErrorsUpdate;
 
-        ProgramData(String root) throws Exception {
+        ProgramData(FileObject root) throws Exception {
+            this.root = root;
             progVar = "p" + nodejs.nextProgId++;
             StringBuilder newProgram = new StringBuilder(progVar).append("= new Program(");
-            stringToJS(newProgram, root);
+            stringToJS(newProgram, root.getPath());
             nodejs.eval(newProgram.append(")\n").toString());
         }
 
@@ -277,7 +280,7 @@ public class TSService {
                 if (nodejs == null) {
                     nodejs = new NodeJSProcess();
                 }
-                program = new ProgramData(cntxt.getRoot().getPath());
+                program = new ProgramData(cntxt.getRoot());
             }
             programs.put(rootURL, program);
 
@@ -289,6 +292,9 @@ public class TSService {
             allFiles.put(fi.path, fi);
 
             program.addFile(fi, snapshot, cntxt.checkForEditorModifications());
+            if (! cntxt.isAllFilesIndexing() && ! cntxt.checkForEditorModifications()) {
+                program.needCompileOnSave.add(fi.fileObject);
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -330,10 +336,24 @@ public class TSService {
         }
     };
 
-    static void updateErrors(final URL rootURI) {
+    static void preIndex(URL rootURI) {
+        lock.lock();
+        try {
+            ProgramData program = programs.get(rootURI);
+            // Stop errors update task so it doesn't starve indexing. We'll restart it in postIndex.
+            if (program != null) {
+                program.currentErrorsUpdate = null;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    static void postIndex(final URL rootURI) {
         final ProgramData program;
         final Object currentUpdate;
         final String[] files;
+        final FileObject[] compileOnSave;
         lock.lock();
         try {
             program = programs.get(rootURI);
@@ -343,6 +363,8 @@ public class TSService {
             program.needErrorsUpdate = false;
             program.currentErrorsUpdate = currentUpdate = new Object();
             files = program.byRelativePath.keySet().toArray(new String[0]);
+            compileOnSave = program.needCompileOnSave.toArray(new FileObject[0]);
+            program.needCompileOnSave.clear();
         } finally {
             lock.unlock();
         }
@@ -351,6 +373,7 @@ public class TSService {
             ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript error checking", task);
             @Override
             public void run() {
+                TSIndexerFactory.compileIfEnabled(program.root, compileOnSave);
                 progress.start(files.length);
                 try {
                     long t1 = System.currentTimeMillis();
