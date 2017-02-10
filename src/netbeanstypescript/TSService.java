@@ -379,7 +379,6 @@ public class TSService {
                     long t1 = System.currentTimeMillis();
                     for (int i = 0; i < files.length; i++) {
                         String fileName = files[i];
-                        FileData fi = program.byRelativePath.get(fileName);
                         progress.progress(fileName, i);
                         if (fileName.endsWith(".json")) {
                             continue;
@@ -388,6 +387,10 @@ public class TSService {
                         try {
                             if (program.currentErrorsUpdate != currentUpdate) {
                                 return; // this task has been superseded
+                            }
+                            FileData fi = program.byRelativePath.get(fileName);
+                            if (fi == null) {
+                                continue;
                             }
                             JSONObject errors = (JSONObject) program.call("getDiagnostics", fi.path);
                             if (errors != null) {
