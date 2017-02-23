@@ -47,6 +47,7 @@ import java.util.Set;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 import netbeanstypescript.tsconfig.TSConfigParser.ConfigNode;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.netbeans.modules.csl.api.*;
 import org.netbeans.modules.csl.spi.DefaultCompletionProposal;
@@ -174,9 +175,9 @@ public class TSConfigCodeCompletion implements CodeCompletionHandler {
                     return new DefaultCompletionResult(proposals, false);
                 }
             }
-            if (node.expectedType instanceof JSONObject) {
+            if (node.expectedType instanceof JSONArray) {
                 List<CompletionProposal> proposals = new ArrayList<>();
-                for (final Object validValue: ((Map) node.expectedType).keySet()) {
+                for (final Object validValue: (JSONArray) node.expectedType) {
                     DefaultCompletionProposal prop = new DefaultCompletionProposal() {
                         @Override
                         public String getName() { return "\"" + validValue + '"'; }

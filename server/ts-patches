@@ -1,6 +1,6 @@
 --- compiler/checker.ts
 +++ compiler/checker.ts
-@@ -2218,6 +2218,13 @@
+@@ -2249,6 +2249,13 @@
                          appendSymbolNameOnly(symbol, writer);
                      }
                      parentSymbol = symbol;
@@ -16,17 +16,17 @@
                  // Let the writer know we just wrote out a symbol.  The declaration emitter writer uses
 --- services/completions.ts
 +++ services/completions.ts
-@@ -110,6 +110,7 @@
-                 kind: SymbolDisplay.getSymbolKind(typeChecker, symbol, location),
-                 kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
-                 sortText: "0",
-+                type: typeChecker.typeToString(typeChecker.getTypeOfSymbolAtLocation(symbol, location))
-             };
+@@ -111,6 +111,7 @@
+             kind: SymbolDisplay.getSymbolKind(typeChecker, symbol, location),
+             kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
+             sortText: "0",
++            type: typeChecker.typeToString(typeChecker.getTypeOfSymbolAtLocation(symbol, location))
+         };
+     }
  
-         }
 --- services/goToDefinition.ts
 +++ services/goToDefinition.ts
-@@ -84,7 +84,9 @@
+@@ -82,7 +82,9 @@
              const shorthandSymbolName = typeChecker.symbolToString(shorthandSymbol);
              const shorthandContainerName = typeChecker.symbolToString(symbol.parent, node);
              return map(shorthandDeclarations,
@@ -37,7 +37,7 @@
          }
  
          return getDefinitionFromSymbol(typeChecker, symbol, node);
-@@ -133,7 +135,9 @@
+@@ -131,7 +133,9 @@
              !tryAddCallSignature(symbol, node, symbolKind, symbolName, containerName, result)) {
              // Just add all the declarations.
              forEach(declarations, declaration => {
@@ -50,7 +50,7 @@
  
 --- services/types.ts
 +++ services/types.ts
-@@ -575,6 +575,7 @@
+@@ -566,6 +566,7 @@
          kind: string;            // see ScriptElementKind
          kindModifiers: string;   // see ScriptElementKindModifier, comma separated
          sortText: string;

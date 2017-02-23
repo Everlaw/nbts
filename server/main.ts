@@ -639,7 +639,15 @@ class Program {
         return this.service.getEmitOutput(fileName);
     }
     getCompilerOptions(fileName: string) {
-        return ts.optionDeclarations;
+        return ts.optionDeclarations.map(function optToJson(opt) {
+            var res = <any>ts.clone(opt);
+            if (typeof opt.type === 'object') {
+                res.type = ts.arrayFrom(opt.type.keys());
+            } else if (opt.type === 'list') {
+                res.element = optToJson((<ts.CommandLineOptionOfListType> opt).element);
+            }
+            return res;
+        });
     }
     getCodeFixesAtPosition(fileName: string, start: number, end: number, errorCodes: number[]) {
         if (! this.fileInProject(fileName)) return null;

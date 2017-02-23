@@ -266,6 +266,13 @@ public class TSConfigParser extends Parser {
                 res.addError("'compileOnSave' value must be a boolean.", compileOnSave);
             }
 
+            rootCompletions.put("extends", new TSConfigElementHandle(
+                    "extends", "string", "Path to another config file to inherit options from."));
+            ConfigNode extendsOption = res.root.properties.get("extends");
+            if (extendsOption != null && ! (extendsOption.value instanceof String)) {
+                res.addError("'extends' value must be a string.", extendsOption);
+            }
+
             ConfigNode files = res.root.properties.get("files");
             rootCompletions.put("files", new TSConfigElementHandle(
                     "files", "list", "Array of files to include in the project."));
@@ -379,15 +386,12 @@ public class TSConfigParser extends Parser {
             if (! valid) {
                 res.addError("Compiler option '" + key + "' requires a value of type " + type + ".", value);
             }
-        } else if (type instanceof JSONObject) {
-            if (! (value.value instanceof String &&
-                   ((Map) type).containsKey(((String) value.value).toLowerCase()))) {
-                @SuppressWarnings("unchecked")
-                List<String> allAllowed = new ArrayList<>(((Map) type).keySet());
-                Collections.sort(allAllowed);
+        } else if (type instanceof JSONArray) {
+            List<?> allAllowed = (List<?>) type;
+            if (! allAllowed.contains(value.value)) {
                 StringBuilder sb = new StringBuilder("Compiler option '").append(key).append("' must be one of: ");
                 boolean first = true;
-                for (String allowed: allAllowed) {
+                for (Object allowed: allAllowed) {
                     sb.append(first ? "'" : ", '").append(allowed).append('\'');
                     first = false;
                 }
