@@ -154,8 +154,11 @@ public class TSService {
                 }
             }
 
-            for (String code: (List<String>) eval("ts.getSupportedCodeFixes()\n")) {
-                supportedCodeFixes.add(Integer.valueOf(code));
+            Object codeFixes = eval("ts.getSupportedCodeFixes()\n");
+            if (codeFixes != null) {
+                for (String code: (List<String>) codeFixes) {
+                    supportedCodeFixes.add(Integer.valueOf(code));
+                }
             }
 
             StringBuilder initLibs = new StringBuilder();

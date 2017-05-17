@@ -108,6 +108,7 @@ public class TSDeclarationFinder implements DeclarationFinder {
                 public ElementHandle getElement() { return handle; }
                 @Override
                 public String getDisplayHtml(HtmlFormatter hf) {
+                    hf.appendHtml("<nobr>"); // Workaround for https://netbeans.org/bugzilla/show_bug.cgi?id=269729
                     hf.appendText((String) def.get("kind"));
                     hf.appendText(" ");
                     String containerName = (String) def.get("containerName");
@@ -120,7 +121,7 @@ public class TSDeclarationFinder implements DeclarationFinder {
                     hf.appendText(destFileName);
                     hf.appendText(":");
                     hf.appendText(def.get("line").toString());
-                    return hf.getText() + " &nbsp;&nbsp;&nbsp;"; // Last word gets cut off...
+                    return hf.getText();
                 }
                 @Override
                 public DeclarationLocation getLocation() { return declLoc; }

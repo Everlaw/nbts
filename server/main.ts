@@ -520,7 +520,8 @@ class Program {
                 node.heritageClauses && node.heritageClauses.forEach(hc => {
                     var isExtends = hc.token === SK.ExtendsKeyword;
                     var typeNames = hc.types.map(typeNode => {
-                        baseTypes.push([typeInfoResolver.getTypeAtLocation(typeNode), ! isExtends]);
+                        const t = typeInfoResolver.getTypeAtLocation(typeNode);
+                        t && baseTypes.push([t, ! isExtends]);
                         return typeNode.getFullText();
                     }).join(", ");
                     res[isExtends ? "extends" : "type"] = typeNames;
