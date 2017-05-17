@@ -57,9 +57,7 @@ import org.openide.util.Exceptions;
  */
 public class TSFormatter implements Formatter {
 
-    @Override
-    public void reformat(Context context, ParserResult pr) {
-        final BaseDocument doc = (BaseDocument) context.document();
+    public static JSONObject getFormattingSettings(BaseDocument doc) {
         JSONObject settings = new JSONObject();
         settings.put("indentSize", IndentUtils.indentLevelSize(doc));
         settings.put("tabSize", IndentUtils.tabSize(doc));
@@ -98,9 +96,15 @@ public class TSFormatter implements Formatter {
                 jsPrefs.get("functionDeclBracePlacement", "").startsWith("NEW"));
         settings.put("placeOpenBraceOnNewLineForControlBlocks",
                 jsPrefs.get("ifBracePlacement", "").startsWith("NEW"));
+        return settings;
+    }
+
+    @Override
+    public void reformat(Context context, ParserResult pr) {
+        final BaseDocument doc = (BaseDocument) context.document();
         final Object edits = TSService.call("getFormattingEdits",
                 GsfUtilities.findFileObject(doc), context.startOffset(), context.endOffset(),
-                settings);
+                getFormattingSettings(doc));
         if (edits == null) {
             return;
         }

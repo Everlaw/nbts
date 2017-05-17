@@ -38,7 +38,6 @@
 package netbeanstypescript.tsconfig;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -347,8 +346,8 @@ public class TSConfigParser extends Parser {
                         continue;
                     }
                     checkType(res, value, optionInfo);
-                    if (key.equals("out")) {
-                        res.addError("'out' option is deprecated. Use 'outFile' instead.",
+                    if (optionInfo.deprecated != null) {
+                        res.addError("'" + key + "' option is deprecated." + optionInfo.deprecated,
                                 value.keyOffset, value.endOffset, Severity.WARNING);
                     }
                     if (optionInfo.commandLineOnly) {
@@ -388,7 +387,8 @@ public class TSConfigParser extends Parser {
             }
         } else if (type instanceof JSONArray) {
             List<?> allAllowed = (List<?>) type;
-            if (! allAllowed.contains(value.value)) {
+            Object v = value.value;
+            if (! (v instanceof String && allAllowed.contains(((String) v).toLowerCase()))) {
                 StringBuilder sb = new StringBuilder("Compiler option '").append(key).append("' must be one of: ");
                 boolean first = true;
                 for (Object allowed: allAllowed) {

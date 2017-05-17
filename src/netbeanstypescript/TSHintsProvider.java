@@ -78,7 +78,8 @@ public class TSHintsProvider implements HintsProvider {
         for (OffsetRange span: errsBySpan.keySet()) {
             final FileObject fileObj = context.parserResult.getSnapshot().getSource().getFileObject();
             Object fixes = TSService.call("getCodeFixesAtPosition", fileObj, span.getStart(), span.getEnd(),
-                    errsBySpan.get(span)); // amazingly, LinkedHashSet<Integer>'s toString is valid JSON
+                    errsBySpan.get(span), // amazingly, LinkedHashSet<Integer>'s toString is valid JSON
+                    TSFormatter.getFormattingSettings(context.doc));
             if (fixes == null) {
                 continue;
             }
@@ -108,13 +109,7 @@ public class TSHintsProvider implements HintsProvider {
                                 public void run() {
                                     try {
                                         for (JSONObject change: (List<JSONObject>) fix.get("changes")) {
-                                            OffsetRange changed = TSFormatter.applyEdits(context.doc,
-                                                    change.get("textChanges"));
-                                            // Code fixes are badly formatted, so reformat the affected range
-                                            // https://github.com/Microsoft/TypeScript/issues/12249
-                                            if (changed != null) {
-                                                formatter.reformat(changed.getStart(), changed.getEnd());
-                                            }
+                                            TSFormatter.applyEdits(context.doc, change.get("textChanges"));
                                         }
                                     } catch (BadLocationException ex) {
                                         Exceptions.printStackTrace(ex);

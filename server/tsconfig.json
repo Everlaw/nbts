@@ -2,7 +2,8 @@
     "compilerOptions": {
         "noImplicitAny": true,
         "noImplicitThis": true,
-        "removeComments": true
+        "removeComments": true,
+        "target": "es5"
     },
     "files": ["main.ts"]
 }

@@ -63,7 +63,7 @@ public class TSConfigCodeCompletion implements CodeCompletionHandler {
 
     static class TSConfigElementHandle implements ElementHandle {
         private static final Set<String> commandLineOnlySet = new HashSet<>(Arrays.asList(
-                "help", "init", "locale", "project", "version"));
+                "all", "help", "init", "locale", "project", "version"));
 
         String name;
         boolean commandLineOnly;
@@ -71,17 +71,20 @@ public class TSConfigCodeCompletion implements CodeCompletionHandler {
         boolean hidden;
         String message;
         TSConfigElementHandle element;
+        String deprecated;
 
         TSConfigElementHandle(JSONObject obj) {
             name = (String) obj.get("name");
             commandLineOnly = commandLineOnlySet.contains(name);
             type = obj.get("type");
-            hidden = Boolean.TRUE.equals(obj.get("experimental"));
             JSONObject description = (JSONObject) obj.get("description");
             if (description != null) {
                 message = (String) description.get("message");
-            } else if (Boolean.TRUE.equals(obj.get("isTSConfigOnly"))) {
-                message = "No description available";
+                if (message.startsWith("[Deprecated]")) {
+                    int depMessageEnd = message.indexOf('.', 12);
+                    deprecated = message.substring(12, depMessageEnd >= 0 ? depMessageEnd + 1 : message.length());
+                    hidden = true;
+                }
             } else {
                 hidden = true;
             }

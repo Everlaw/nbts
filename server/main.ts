@@ -650,9 +650,10 @@ class Program {
             return res;
         });
     }
-    getCodeFixesAtPosition(fileName: string, start: number, end: number, errorCodes: number[]) {
+    getCodeFixesAtPosition(fileName: string, start: number, end: number, errorCodes: number[],
+            formatOptions: ts.FormatCodeSettings) {
         if (! this.fileInProject(fileName)) return null;
-        return this.service.getCodeFixesAtPosition(fileName, start, end, errorCodes);
+        return this.service.getCodeFixesAtPosition(fileName, start, end, errorCodes, formatOptions);
     }
 }
 
