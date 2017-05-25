@@ -1,6 +1,6 @@
 --- compiler/checker.ts
 +++ compiler/checker.ts
-@@ -2970,6 +2970,13 @@
+@@ -2973,6 +2973,13 @@
                          appendSymbolNameOnly(symbol, writer);
                      }
                      parentSymbol = symbol;
