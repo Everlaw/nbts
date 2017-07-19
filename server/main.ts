@@ -341,7 +341,7 @@ class Program {
             node.text && highlight(node.end - node.text.length, node.end, attr);
         }
 
-        var localDecls: ts.Declaration[] = [];
+        var localDecls: ts.NamedDeclaration[] = [];
         var usedSymbols = new Set<ts.Symbol>();
 
         function isGlobal(decl: ts.Node) {
@@ -471,7 +471,7 @@ class Program {
 
         function buildResults(topNode: ts.Node, inFunction: boolean, baseTypes?: [ts.Type, boolean][]) {
             var results: any[] = [];
-            function add(node: ts.Declaration, kind: string, symbol?: ts.Symbol) {
+            function add(node: ts.NamedDeclaration, kind: string, symbol?: ts.Symbol) {
                 var name = node.kind === SK.Constructor ? "constructor" : (<any>node.name).text;
                 if (! name) { // anonymous function
                     return;

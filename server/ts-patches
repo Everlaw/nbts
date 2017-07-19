@@ -1,6 +1,6 @@
 --- compiler/checker.ts
 +++ compiler/checker.ts
-@@ -2973,6 +2973,13 @@
+@@ -3128,6 +3128,13 @@
                          appendSymbolNameOnly(symbol, writer);
                      }
                      parentSymbol = symbol;
@@ -16,7 +16,7 @@
                  // Let the writer know we just wrote out a symbol.  The declaration emitter writer uses
 --- services/completions.ts
 +++ services/completions.ts
-@@ -118,6 +118,7 @@
+@@ -124,6 +124,7 @@
              kind: SymbolDisplay.getSymbolKind(typeChecker, symbol, location),
              kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
              sortText: "0",
@@ -26,7 +26,7 @@
  
 --- services/goToDefinition.ts
 +++ services/goToDefinition.ts
-@@ -82,7 +82,9 @@
+@@ -73,7 +73,9 @@
              const shorthandSymbolName = typeChecker.symbolToString(shorthandSymbol);
              const shorthandContainerName = typeChecker.symbolToString(symbol.parent, node);
              return map(shorthandDeclarations,
@@ -36,8 +36,8 @@
 +                declaration => createDefinitionInfo(declaration, getNodeKind(declaration), shorthandSymbolName, shorthandContainerName));
          }
  
-         if (isJsxOpeningLikeElement(node.parent)) {
-@@ -162,7 +164,9 @@
+         // If the current location we want to find its definition is in an object literal, try to get the contextual type for the
+@@ -159,7 +161,9 @@
              !tryAddCallSignature(symbol, node, symbolKind, symbolName, containerName, result)) {
              // Just add all the declarations.
              forEach(declarations, declaration => {
@@ -50,7 +50,7 @@
  
 --- services/types.ts
 +++ services/types.ts
-@@ -593,6 +593,7 @@
+@@ -654,6 +654,7 @@
          kind: string;            // see ScriptElementKind
          kindModifiers: string;   // see ScriptElementKindModifier, comma separated
          sortText: string;
