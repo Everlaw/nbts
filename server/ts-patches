@@ -1,6 +1,6 @@
 --- services/completions.ts
 +++ services/completions.ts
-@@ -124,6 +124,7 @@
+@@ -131,6 +131,7 @@
              kind: SymbolDisplay.getSymbolKind(typeChecker, symbol, location),
              kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
              sortText: "0",
@@ -20,8 +20,8 @@
 +                declaration => createDefinitionInfo(declaration, getNodeKind(declaration), shorthandSymbolName, shorthandContainerName));
          }
  
-         // If the current location we want to find its definition is in an object literal, try to get the contextual type for the
-@@ -159,7 +161,9 @@
+         // If the node is the name of a BindingElement within an ObjectBindingPattern instead of just returning the
+@@ -181,7 +183,9 @@
              !tryAddCallSignature(symbol, node, symbolKind, symbolName, containerName, result)) {
              // Just add all the declarations.
              forEach(declarations, declaration => {
@@ -34,8 +34,8 @@
  
 --- services/types.ts
 +++ services/types.ts
-@@ -654,6 +654,7 @@
-         kind: string;            // see ScriptElementKind
+@@ -657,6 +657,7 @@
+         kind: ScriptElementKind;
          kindModifiers: string;   // see ScriptElementKindModifier, comma separated
          sortText: string;
 +        type?: string;
