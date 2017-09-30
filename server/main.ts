@@ -655,6 +655,16 @@ class Program {
         if (! this.fileInProject(fileName)) return null;
         return this.service.getCodeFixesAtPosition(fileName, start, end, errorCodes, formatOptions);
     }
+    getApplicableRefactors(fileName: string, pos: number, end: number) {
+        if (! this.fileInProject(fileName)) return null;
+        return this.service.getApplicableRefactors(fileName, pos === end ? pos : { pos, end });
+    }
+    getEditsForRefactor(fileName: string, formatOptions: ts.FormatCodeSettings, pos: number, end: number,
+            refactorName: string, actionName: string) {
+        if (! this.fileInProject(fileName)) return null;
+        return this.service.getEditsForRefactor(fileName, formatOptions, pos === end ? pos : { pos, end },
+                refactorName, actionName);
+    }
 }
 
 require('readline').createInterface(process.stdin, process.stdout).on('line', (l: string) => {
