@@ -69,7 +69,10 @@ declare var require: any;
 declare module process { var stdin: any, stdout: any; }
 declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
+var version = 0;
+var files: {[name: string]: {version: string; snapshot: SnapshotImpl}} = {};
 var builtinLibs: {[name: string]: string} = {};
+var docRegistry = ts.createDocumentRegistry(ts.sys.useCaseSensitiveFileNames);
 
 var implicitAnyErrors: {[code: number]: boolean} = {};
 [[2602, 2602], [7000, 7026], [7031, 7034]].forEach(([lo, hi]) => {
@@ -79,15 +82,12 @@ var implicitAnyErrors: {[code: number]: boolean} = {};
 });
 
 class HostImpl implements ts.LanguageServiceHost {
-    version = 0;
-    files: {[name: string]: {version: string; snapshot: SnapshotImpl}} = {};
     cachedConfig: {
-        path: string;
         parseError: ts.Diagnostic;
         compileOnSave: boolean;
         pcl: ts.ParsedCommandLine;
     } = null;
-    constructor(public root: string) {}
+    constructor(public path: string, public isConfig: boolean) {}
     log(s: string) {
         process.stdout.write('L' + JSON.stringify(s) + '\n');
     }
@@ -104,7 +104,7 @@ class HostImpl implements ts.LanguageServiceHost {
         return ts.getNewLineCharacter(this.configUpToDate().pcl.options);
     }
     getProjectVersion() {
-        return String(this.version);
+        return String(version);
     }
     getScriptFileNames() {
         return this.configUpToDate().pcl.fileNames;
@@ -112,22 +112,22 @@ class HostImpl implements ts.LanguageServiceHost {
     getScriptVersion(fileName: string) {
         if (fileName in builtinLibs) {
             return "0";
-        } else if (this.files[fileName]) {
-            return this.files[fileName].version;
+        } else if (files[fileName]) {
+            return files[fileName].version;
         }
         return this.getProjectVersion();
     }
     getScriptSnapshot(fileName: string): ts.IScriptSnapshot {
         if (fileName in builtinLibs) {
             return new SnapshotImpl(builtinLibs[fileName]);
-        } else if (this.files[fileName]) {
-            return this.files[fileName].snapshot;
+        } else if (files[fileName]) {
+            return files[fileName].snapshot;
         }
         var text = ts.sys.readFile(fileName);
         return typeof text === 'string' ? new SnapshotImpl(text) : undefined;
     }
     getCurrentDirectory() {
-        return this.root;
+        return "";
     }
     getDefaultLibFileName(options: ts.CompilerOptions): string {
         return "(builtin)/" + ts.getDefaultLibFileName(options);
@@ -152,20 +152,14 @@ class HostImpl implements ts.LanguageServiceHost {
     }
     configUpToDate() {
         if (! this.cachedConfig) {
-            var path = this.root + "/";
             var parsed: { config?: any; error?: ts.Diagnostic } = {};
-            var configFiles = Object.keys(this.files)
-                    .filter(name => ts.fileExtensionIs(name, '.json'));
-            if (configFiles.length) {
-                // We only support one project per source root for now; if there are multiple
-                // tsconfig.json files under this root, pick the one with the shortest path.
-                configFiles.sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
-                path = configFiles[0];
-                parsed = ts.parseConfigFileTextToJson(path, this.files[path].snapshot.text);
+            if (this.isConfig) {
+                parsed = ts.readConfigFile(this.path, this.readFile);
+            } else {
+                parsed = { config: { files: [this.path] } }
             }
-            var dir = ts.getDirectoryPath(path);
+            var dir = ts.getDirectoryPath(this.path);
             this.cachedConfig = {
-                path: path,
                 parseError: parsed.error,
                 compileOnSave: parsed.config ? parsed.config.compileOnSave : undefined,
                 pcl: ts.parseJsonConfigFileContent(parsed.config || {}, ts.sys, dir)
@@ -199,24 +193,8 @@ class SnapshotImpl implements ts.IScriptSnapshot {
 }
 
 class Program {
-    host = new HostImpl(this.root);
-    service = ts.createLanguageService(this.host);
-    constructor(public root: string) {}
-    updateFile(fileName: string, newText: string, modified: boolean) {
-        this.host.version++;
-        if (! (fileName in this.host.files) || /\.json$/.test(fileName)) {
-            this.host.cachedConfig = null;
-        }
-        this.host.files[fileName] = {
-            version: String(this.host.version),
-            snapshot: new SnapshotImpl(newText)
-        };
-    }
-    deleteFile(fileName: string) {
-        this.host.version++;
-        this.host.cachedConfig = null;
-        delete this.host.files[fileName];
-    }
+    service = ts.createLanguageService(this.host, docRegistry);
+    constructor(public host: HostImpl) {}
     fileInProject(fileName: string) {
         return !!this.service.getProgram().getSourceFile(ts.normalizeSlashes(fileName));
     }
@@ -225,7 +203,7 @@ class Program {
         if (! this.fileInProject(fileName)) {
             return {
                 errs: [],
-                metaErrors: ["File " + fileName + " is not in project defined by " + config.path]
+                metaErrors: ["File " + fileName + " is not in project defined by " + this.host.path]
             };
         }
         function errText(diag: ts.Diagnostic): string {
@@ -233,7 +211,7 @@ class Program {
         }
         var metaErrors = config.parseError
                 ? [errText(config.parseError)]
-                : config.pcl.errors.map(diag => config.path + ": " + errText(diag));
+                : config.pcl.errors.map(diag => this.host.path + ": " + errText(diag));
         this.service.getCompilerOptionsDiagnostics().forEach(diag => {
             metaErrors.push("Project error: " + errText(diag));
         });
@@ -665,6 +643,54 @@ class Program {
         return this.service.getEditsForRefactor(fileName, formatOptions, pos === end ? pos : { pos, end },
                 refactorName, actionName);
     }
+}
+
+var programCache: {[path: string]: Program} = {};
+
+function clearProgramCache() {
+    for (var path in programCache) {
+        programCache[path] && programCache[path].service.dispose();
+    }
+    programCache = {};
+}
+
+function updateFile(fileName: string, newText: string) {
+    version++;
+    if (! (fileName in files) || /\.json$/.test(fileName)) {
+        clearProgramCache();
+    }
+    files[fileName] = {
+        version: String(version),
+        snapshot: new SnapshotImpl(newText)
+    };
+}
+
+function deleteFile(fileName: string) {
+    version++;
+    clearProgramCache();
+    delete files[fileName];
+}
+
+function fileCall(method: keyof Program, fileName: string/*, ...*/) {
+    var p = programCache[fileName];
+    if (! p) {
+        // Walk up the directory tree looking for tsconfig.json
+        p = (function getConfiguredProgram(dir: string) {
+            if (! (dir in programCache)) {
+                var config = ts.combinePaths(dir, "tsconfig.json");
+                if (ts.sys.fileExists(config)) {
+                    programCache[dir] = new Program(new HostImpl(config, true));
+                } else {
+                    var parentDir = ts.getDirectoryPath(dir);
+                    programCache[dir] = parentDir === dir ? null : getConfiguredProgram(parentDir);
+                }
+            }
+            return programCache[dir];
+        })(ts.getDirectoryPath(fileName));
+        // If no tsconfig.json found, create a program with only this file
+        programCache[fileName] = p || (p = new Program(new HostImpl(fileName, false)));
+    }
+    return (<Function>p[method]).apply(p, [].slice.call(arguments, 1));
 }
 
 require('readline').createInterface(process.stdin, process.stdout).on('line', (l: string) => {

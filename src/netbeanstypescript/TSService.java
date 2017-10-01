@@ -129,7 +129,6 @@ public class TSService {
         BufferedReader stdout;
         String error;
         Set<Integer> supportedCodeFixes = new HashSet<>();
-        int nextProgId = 0;
 
         NodeJSProcess() throws Exception {
             log.info("Starting nodejs");
@@ -212,7 +211,6 @@ public class TSService {
 
     private static class ProgramData {
         final FileObject root;
-        final String progVar;
         final Map<String, FileData> byRelativePath = new HashMap<>();
         final List<FileObject> needCompileOnSave = new ArrayList<>();
         boolean needErrorsUpdate;
@@ -220,14 +218,10 @@ public class TSService {
 
         ProgramData(FileObject root) throws Exception {
             this.root = root;
-            progVar = "p" + nodejs.nextProgId++;
-            StringBuilder newProgram = new StringBuilder(progVar).append("= new Program(");
-            stringToJS(newProgram, root.getPath());
-            nodejs.eval(newProgram.append(")\n").toString());
         }
 
         Object call(String method, Object... args) {
-            StringBuilder sb = new StringBuilder(progVar).append('.').append(method).append('(');
+            StringBuilder sb = new StringBuilder(method).append('(');
             for (Object arg: args) {
                 if (sb.charAt(sb.length() - 1) != '(') sb.append(',');
                 if (arg instanceof CharSequence) {
@@ -261,8 +255,11 @@ public class TSService {
             return null;
         }
 
-        void dispose() throws Exception {
-            nodejs.eval("delete " + progVar + "\n");
+        void removeAll() {
+            for (FileData fd: byRelativePath.values()) {
+                call("deleteFile", fd.path);
+            }
+            byRelativePath.clear();
         }
     }
 
@@ -395,7 +392,7 @@ public class TSService {
                             if (fi == null) {
                                 continue;
                             }
-                            JSONObject errors = (JSONObject) program.call("getDiagnostics", fi.path);
+                            JSONObject errors = (JSONObject) program.call("fileCall", "getDiagnostics", fi.path);
                             if (errors != null) {
                                 ErrorsCache.setErrors(rootURI, fi.indexable,
                                         (List<JSONObject>) errors.get("errs"), errorConvertor);
@@ -432,11 +429,7 @@ public class TSService {
                 }
             }
 
-            try {
-                program.dispose();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            program.removeAll();
 
             if (programs.isEmpty()) {
                 log.info("No programs left; shutting down nodejs");
@@ -481,7 +474,7 @@ public class TSService {
                     null, fo, 0, 1, true, Severity.ERROR));
             }
 
-            JSONObject diags = (JSONObject) fd.program.call("getDiagnostics", fd.path);
+            JSONObject diags = (JSONObject) fd.program.call("fileCall", "getDiagnostics", fd.path);
             if (diags == null) {
                 return Arrays.asList(new DefaultError(null,
                     nodejs.error != null ? nodejs.error : "Error in getDiagnostics",
@@ -519,10 +512,11 @@ public class TSService {
             if (fd == null) {
                 return null;
             }
-            Object[] filenameAndArgs = new Object[args.length + 1];
-            filenameAndArgs[0] = fd.path;
-            System.arraycopy(args, 0, filenameAndArgs, 1, args.length);
-            return fd.program.call(method, filenameAndArgs);
+            Object[] filenameAndArgs = new Object[args.length + 2];
+            filenameAndArgs[0] = method;
+            filenameAndArgs[1] = fd.path;
+            System.arraycopy(args, 0, filenameAndArgs, 2, args.length);
+            return fd.program.call("fileCall", filenameAndArgs);
         } finally {
             lock.unlock();
         }

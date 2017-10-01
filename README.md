@@ -18,7 +18,7 @@ Download the latest netbeanstypescript.nbm file from the [Releases](https://gith
 
 ### Notes
 
-* All .ts/.tsx files under one source root are currently assumed to be part of one TypeScript project.
+* All .ts/.tsx files under a directory containing a tsconfig.json file are assumed to be part of that TypeScript project.
 * By default, "implicit any" errors are enabled, but are shown as warnings rather than errors. You may explicitly specify `"noImplicitAny": false` in a TypeScript project's tsconfig.json to disable "implicit any" errors altogether.
 
 ### Versioning
