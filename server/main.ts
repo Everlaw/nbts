@@ -84,7 +84,6 @@ var implicitAnyErrors: {[code: number]: boolean} = {};
 class HostImpl implements ts.LanguageServiceHost {
     cachedConfig: {
         parseError: ts.Diagnostic;
-        compileOnSave: boolean;
         pcl: ts.ParsedCommandLine;
     } = null;
     constructor(public path: string, public isConfig: boolean) {}
@@ -161,7 +160,6 @@ class HostImpl implements ts.LanguageServiceHost {
             var dir = ts.getDirectoryPath(this.path);
             this.cachedConfig = {
                 parseError: parsed.error,
-                compileOnSave: parsed.config ? parsed.config.compileOnSave : undefined,
                 pcl: ts.parseJsonConfigFileContent(parsed.config || {}, ts.sys, dir)
             }
         }
@@ -609,7 +607,7 @@ class Program {
         });
     }
     getCompileOnSaveEmitOutput(fileName: string, guiSetting: boolean) {
-        var { compileOnSave = guiSetting } = this.host.configUpToDate();
+        var { compileOnSave = guiSetting } = this.host.configUpToDate().pcl.raw;
         if (! compileOnSave || ! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }
