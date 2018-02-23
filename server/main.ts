@@ -448,12 +448,8 @@ class Program {
         function buildResults(topNode: ts.Node, inFunction: boolean, baseTypes?: [ts.Type, boolean][]) {
             var results: any[] = [];
             function add(node: ts.NamedDeclaration, kind: string, symbol?: ts.Symbol) {
-                var name = node.kind === SK.Constructor ? "constructor" : (<any>node.name).text;
-                if (! name) { // anonymous function
-                    return;
-                }
                 var res: any = {
-                    name: name,
+                    name: node.name && (<any>node.name).text || "<unnamed>",
                     kind: kind,
                     kindModifiers: ts.getNodeModifiers(node),
                     start: ts.skipTrivia(sourceFile.text, node.pos),
@@ -489,6 +485,7 @@ class Program {
                 if (node.body) {
                     res.children = buildResults(node.body, true);
                 }
+                return res;
             }
             function addClass(node: ts.ClassDeclaration | ts.InterfaceDeclaration, kind: string) {
                 var res = add(node, kind);
@@ -517,7 +514,8 @@ class Program {
                         add(<ts.MethodSignature>node, SEK.memberFunctionElement, node.symbol);
                         break;
                     case SK.Constructor:
-                        addFunc(<ts.ConstructorDeclaration>node, SEK.constructorImplementationElement);
+                        var res = addFunc(<ts.ConstructorDeclaration>node, SEK.constructorImplementationElement);
+                        res.name = "constructor";
                         (<ts.ConstructorDeclaration>node).parameters.forEach(function(p) {
                             if (ts.hasModifier(p, ts.ModifierFlags.ParameterPropertyModifier))
                                 add(p, SEK.memberVariableElement, p.symbol);
