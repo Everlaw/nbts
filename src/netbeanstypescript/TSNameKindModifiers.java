@@ -67,14 +67,16 @@ public class TSNameKindModifiers {
     TSNameKindModifiers(JSONObject obj) {
         name = (String) obj.get("name");
 
-        // See ScriptElementKind in services/services.ts
+        // See ScriptElementKind in services/types.ts
         switch ((String) obj.get("kind")) {
+            case "warning": break;
             case "keyword": kind = ElementKind.KEYWORD; break;
             case "script": kind = ElementKind.FILE; break;
             case "module": kind = ElementKind.MODULE; break;
-            case "class": kind = ElementKind.CLASS; break;
+            case "class": case "local class": kind = ElementKind.CLASS; break;
             case "interface": case "type": kind = ElementKind.INTERFACE; icon = interfaceIcon; break;
             case "enum": kind = ElementKind.CLASS; icon = enumIcon; break;
+            case "enum member": kind = ElementKind.PARAMETER; break;
             case "var": kind = ElementKind.VARIABLE; break;
             case "local var": kind = ElementKind.VARIABLE; break;
             case "function": kind = ElementKind.METHOD; break;
@@ -96,10 +98,11 @@ public class TSNameKindModifiers {
             case "let": kind = ElementKind.VARIABLE; break;
             case "directory": kind = ElementKind.PACKAGE; icon = folderIcon; break;
             case "external module name": kind = ElementKind.MODULE; break;
+            case "JSX attribute": break;
             default: TSService.log.log(Level.WARNING, "Unknown symbol kind [{0}]", obj.get("kind"));
         }
 
-        // See ScriptElementKindModifier in services/services.ts
+        // See ScriptElementKindModifier in services/types.ts
         String kindModifiers = (String) obj.get("kindModifiers");
         if (kindModifiers != null && ! kindModifiers.isEmpty()) {
             modifiers = EnumSet.noneOf(Modifier.class);
@@ -112,6 +115,7 @@ public class TSNameKindModifiers {
                     case "declare": break;
                     case "static": modifiers.add(Modifier.STATIC); break;
                     case "abstract": modifiers.add(Modifier.ABSTRACT); break;
+                    case "optional": break;
                     case "deprecated": modifiers.add(Modifier.DEPRECATED); break;
                     default: TSService.log.log(Level.WARNING, "Unknown modifier [{0}]", modifier);
                 }

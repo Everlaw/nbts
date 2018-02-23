@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+/// <reference path="ts/compiler/builderState.ts"/>
 /// <reference path="ts/services/services.ts"/>
 
 namespace ts {
@@ -235,15 +236,15 @@ class Program {
     }
     getCompletions(fileName: string, position: number) {
         if (! this.fileInProject(fileName)) return null;
-        return this.service.getCompletionsAtPosition(fileName, position);
+        return this.service.getCompletionsAtPosition(fileName, position, void 0);
     }
     getCompletionEntryDetails(fileName: string, position: number, entryName: string) {
         if (! this.fileInProject(fileName)) return null;
-        return this.service.getCompletionEntryDetails(fileName, position, entryName);
+        return this.service.getCompletionEntryDetails(fileName, position, entryName, void 0, void 0);
     }
     getCompletionEntryLocation(fileName: string, position: number, entryName: string) {
         if (! this.fileInProject(fileName)) return null;
-        var sym = this.service.getCompletionEntrySymbol(fileName, position, entryName);
+        var sym = this.service.getCompletionEntrySymbol(fileName, position, entryName, void 0);
         if (sym) {
             var decl = sym.declarations[0];
             if (decl) {

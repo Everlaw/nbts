@@ -23,7 +23,7 @@ Download the latest netbeanstypescript.nbm file from the [Releases](https://gith
 
 ### Versioning
 
-The version number of this plugin reflects the version of TypeScript it incorporates (currently 2.5.3), with an extra digit for new versions that do not involve a TypeScript update. We intend to keep this plugin up to date with new versions of TypeScript when they come out.
+The version number of this plugin reflects the version of TypeScript it incorporates (currently 2.7.2), with an extra digit for new versions that do not involve a TypeScript update. We intend to keep this plugin up to date with new versions of TypeScript when they come out.
 
 ### Contributing
 

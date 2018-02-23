@@ -307,7 +307,7 @@ public class TSLexer implements Lexer<JsTokenId> {
             case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
                 do {
                     ch = input.read();
-                } while (Character.isLetterOrDigit(ch));
+                } while (Character.isJavaIdentifierPart(ch));
                 // TODO: hex/octal literals can't have decimals
                 if (ch == '.') {
                     return decimal();
