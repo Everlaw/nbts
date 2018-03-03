@@ -38,6 +38,8 @@
 package netbeanstypescript;
 
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.prefs.Preferences;
 import org.netbeans.api.progress.ProgressHandle;
@@ -45,6 +47,7 @@ import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
+import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
@@ -52,6 +55,7 @@ import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Pair;
 
 /**
  * This "indexer" doesn't really index anything, it's just a way to read all the TS files in a
@@ -78,14 +82,18 @@ public class TSIndexerFactory extends CustomIndexerFactory {
                 if (root == null) {
                     return;
                 }
+                List<Pair<Indexable, Snapshot>> snapshots = new ArrayList<>();
                 for (Indexable indxbl: files) {
                     FileObject fo = root.getFileObject(indxbl.getRelativePath());
                     if (fo == null) continue;
                     if ("text/typescript".equals(FileUtil.getMIMEType(fo))) {
-                        TSService.addFile(Source.create(fo).createSnapshot(), indxbl, context);
+                        snapshots.add(Pair.of(indxbl, Source.create(fo).createSnapshot()));
                     } else if (fo.getNameExt().equals("tsconfig.json")) {
-                        TSService.addFile(Source.create(fo).createSnapshot(), indxbl, context);
+                        snapshots.add(Pair.of(indxbl, Source.create(fo).createSnapshot()));
                     }
+                }
+                if (! snapshots.isEmpty()) {
+                    TSService.addFiles(snapshots, context);
                 }
             }
         };
@@ -105,9 +113,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
 
     @Override
     public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
-        for (Indexable i: deleted) {
-            TSService.removeFile(i, context);
-        }
+        TSService.removeFiles(deleted, context);
     }
 
     @Override

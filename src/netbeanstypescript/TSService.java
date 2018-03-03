@@ -73,6 +73,7 @@ import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.modules.InstalledFileLocator;
+import org.openide.util.Pair;
 import org.openide.util.RequestProcessor;
 
 /**
@@ -270,7 +271,7 @@ public class TSService {
         String path;
     }
 
-    static void addFile(Snapshot snapshot, Indexable indxbl, Context cntxt) {
+    static void addFiles(List<Pair<Indexable, Snapshot>> files, Context cntxt) {
         lock.lock();
         try {
             URL rootURL = cntxt.getRootURI();
@@ -284,16 +285,18 @@ public class TSService {
             }
             programs.put(rootURL, program);
 
-            FileData fi = new FileData();
-            fi.program = program;
-            fi.fileObject = snapshot.getSource().getFileObject();
-            fi.indexable = indxbl;
-            fi.path = fi.fileObject.getPath();
-            allFiles.put(fi.path, fi);
+            for (Pair<Indexable, Snapshot> item: files) {
+                FileData fi = new FileData();
+                fi.program = program;
+                fi.fileObject = item.second().getSource().getFileObject();
+                fi.indexable = item.first();
+                fi.path = fi.fileObject.getPath();
+                allFiles.put(fi.path, fi);
 
-            program.addFile(fi, snapshot, cntxt.checkForEditorModifications());
-            if (! cntxt.isAllFilesIndexing() && ! cntxt.checkForEditorModifications()) {
-                program.needCompileOnSave.add(fi.fileObject);
+                program.addFile(fi, item.second(), cntxt.checkForEditorModifications());
+                if (! cntxt.isAllFilesIndexing() && ! cntxt.checkForEditorModifications()) {
+                    program.needCompileOnSave.add(fi.fileObject);
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -302,14 +305,16 @@ public class TSService {
         }
     }
 
-    static void removeFile(Indexable indxbl, Context cntxt) {
+    static void removeFiles(Iterable<? extends Indexable> indxbls, Context cntxt) {
         lock.lock();
         try {
             ProgramData program = programs.get(cntxt.getRootURI());
             if (program != null) {
                 try {
-                    String path = program.removeFile(indxbl);
-                    allFiles.remove(path);
+                    for (Indexable indxbl: indxbls) {
+                        String path = program.removeFile(indxbl);
+                        allFiles.remove(path);
+                    }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
