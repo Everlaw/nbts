@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-/// <reference path="ts/compiler/builderState.ts"/>
-/// <reference path="ts/services/services.ts"/>
-
 namespace ts {
-    // This type is used in services.ts but only declared in shims.ts (a file we don't need)
-    export type LanguageServiceShimHost = LanguageServiceHost;
-
     export interface Symbol {
         nbtsDeprecated?: boolean;
     }
@@ -240,7 +234,7 @@ class Program {
     }
     getCompletionEntryDetails(fileName: string, position: number, entryName: string) {
         if (! this.fileInProject(fileName)) return null;
-        return this.service.getCompletionEntryDetails(fileName, position, entryName, void 0, void 0);
+        return this.service.getCompletionEntryDetails(fileName, position, entryName, void 0, void 0, void 0);
     }
     getCompletionEntryLocation(fileName: string, position: number, entryName: string) {
         if (! this.fileInProject(fileName)) return null;
@@ -614,7 +608,7 @@ class Program {
         if (! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }
-    getCompilerOptions(fileName: string) {
+    getCompilerOptions() {
         return ts.optionDeclarations.map(function optToJson(opt) {
             var res = <any>ts.clone(opt);
             if (typeof opt.type === 'object') {
@@ -628,17 +622,17 @@ class Program {
     getCodeFixesAtPosition(fileName: string, start: number, end: number, errorCodes: number[],
             formatOptions: ts.FormatCodeSettings) {
         if (! this.fileInProject(fileName)) return null;
-        return this.service.getCodeFixesAtPosition(fileName, start, end, errorCodes, formatOptions);
+        return this.service.getCodeFixesAtPosition(fileName, start, end, errorCodes, formatOptions, void 0);
     }
     getApplicableRefactors(fileName: string, pos: number, end: number) {
         if (! this.fileInProject(fileName)) return null;
-        return this.service.getApplicableRefactors(fileName, pos === end ? pos : { pos, end });
+        return this.service.getApplicableRefactors(fileName, pos === end ? pos : { pos, end }, void 0);
     }
     getEditsForRefactor(fileName: string, formatOptions: ts.FormatCodeSettings, pos: number, end: number,
             refactorName: string, actionName: string) {
         if (! this.fileInProject(fileName)) return null;
         return this.service.getEditsForRefactor(fileName, formatOptions, pos === end ? pos : { pos, end },
-                refactorName, actionName);
+                refactorName, actionName, void 0);
     }
 }
 

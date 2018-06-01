@@ -1,9 +1,12 @@
 {
+    "extends": "./ts/services/tsconfig",
     "compilerOptions": {
-        "noImplicitAny": true,
-        "noImplicitThis": true,
+        "declaration": false,
+        "preserveConstEnums": false,
         "removeComments": true,
-        "target": "es5"
+        "sourceMap": false,
+        "typeRoots": ["."],
+        "types": ["dummy-types"]
     },
-    "files": ["main.ts"]
+    "include": ["main.ts"]
 }

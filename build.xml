@@ -8,7 +8,7 @@
 
     <!-- Paths to the TypeScript installation to copy files from, and the Node.js executable to
          use while building. Adjust these according to your own environment. -->
-    <property name="typescript" value="${env.HOME}/TypeScript-2.7.2"/>
+    <property name="typescript" value="${env.HOME}/TypeScript-2.9.1"/>
     <property name="node.executable" value="node"/>
 
     <target name="compile" depends="projectized-common.compile">
@@ -35,7 +35,8 @@
             <fileset dir="${typescript}/src">
                 <include name="compiler/**/*.ts"/>
                 <include name="compiler/diagnosticMessages.json"/>
-                <include name="services/**/*.ts"/>
+                <include name="services/**"/>
+                <include name="tsconfig-base.json"/>
             </fileset>
         </copy>
         <echo file="server/ts/installdir">${typescript}</echo>
@@ -45,10 +46,14 @@
         <patch patchfile="server/ts-patches" strip="0" dir="server/ts" failonerror="true"/>
         <echo>Building processDiagnosticMessages.js</echo>
         <exec executable="${typescript}/bin/tsc" failonerror="true">
-            <arg value="${typescript}/scripts/processDiagnosticMessages.ts"/>
+            <arg value="--project"/>
+            <arg value="${typescript}/scripts/processDiagnosticMessages.tsconfig.json"/>
             <arg value="--outFile"/>
             <arg value="build/processDiagnosticMessages.js"/>
-            <arg value="--noEmitOnError"/>
+            <arg value="--typeRoots"/>
+            <arg value="server"/>
+            <arg value="--types"/>
+            <arg value="dummy-types"/>
         </exec>
         <echo>Processing diagnostic messages</echo>
         <exec executable="${node.executable}" failonerror="true">

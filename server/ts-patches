@@ -1,6 +1,6 @@
 --- services/completions.ts
 +++ services/completions.ts
-@@ -216,6 +216,7 @@
+@@ -239,6 +239,7 @@
              kind: SymbolDisplay.getSymbolKind(typeChecker, symbol, location),
              kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
              sortText: "0",
@@ -10,30 +10,18 @@
              isRecommended: trueOrUndefined(isRecommendedCompletionMatch(symbol, recommendedCompletion, typeChecker)),
 --- services/goToDefinition.ts
 +++ services/goToDefinition.ts
-@@ -60,7 +60,9 @@
-             const shorthandSymbolName = typeChecker.symbolToString(shorthandSymbol);
-             const shorthandContainerName = typeChecker.symbolToString(symbol.parent, node);
-             return map(shorthandDeclarations,
--                declaration => createDefinitionInfo(declaration, shorthandSymbolKind, shorthandSymbolName, shorthandContainerName));
-+                // netbeanstypescript edit - node kind is more useful to distinguish the decls
-+                //declaration => createDefinitionInfo(declaration, shorthandSymbolKind, shorthandSymbolName, shorthandContainerName));
-+                declaration => createDefinitionInfo(declaration, getNodeKind(declaration), shorthandSymbolName, shorthandContainerName));
-         }
- 
-         // If the node is the name of a BindingElement within an ObjectBindingPattern instead of just returning the
-@@ -186,7 +188,8 @@
- 
-     function getDefinitionFromSymbol(typeChecker: TypeChecker, symbol: Symbol, node: Node): DefinitionInfo[] {
-         const { symbolName, symbolKind, containerName } = getSymbolInfo(typeChecker, symbol, node);
--        return getConstructSignatureDefinition() || getCallSignatureDefinition() || map(symbol.declarations, declaration => createDefinitionInfo(declaration, symbolKind, symbolName, containerName));
-+        // netbeanstypescript edit - node kind is more useful to distinguish the decls
-+        return getConstructSignatureDefinition() || getCallSignatureDefinition() || map(symbol.declarations, declaration => createDefinitionInfo(declaration, getNodeKind(declaration), symbolName, containerName));
- 
-         function getConstructSignatureDefinition(): DefinitionInfo[] | undefined {
-             // Applicable only if we are in a new expression, or we are on a constructor declaration
+@@ -223,7 +223,7 @@
+     /** Creates a DefinitionInfo from a Declaration, using the declaration's name if possible. */
+     function createDefinitionInfo(declaration: Declaration, checker: TypeChecker, symbol: Symbol, node: Node): DefinitionInfo {
+         const symbolName = checker.symbolToString(symbol); // Do not get scoped name, just the name of the symbol
+-        const symbolKind = SymbolDisplay.getSymbolKind(checker, symbol, node);
++        const symbolKind = getNodeKind(declaration);
+         const containerName = symbol.parent ? checker.symbolToString(symbol.parent, node) : "";
+         return createDefinitionInfoFromName(declaration, symbolKind, symbolName, containerName);
+     }
 --- services/types.ts
 +++ services/types.ts
-@@ -740,6 +740,7 @@
+@@ -794,6 +794,7 @@
          kind: ScriptElementKind;
          kindModifiers: string; // see ScriptElementKindModifier, comma separated
          sortText: string;
