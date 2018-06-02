@@ -39,7 +39,10 @@ package netbeanstypescript;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.prefs.Preferences;
 import org.netbeans.api.progress.ProgressHandle;
@@ -64,12 +67,19 @@ import org.openide.util.Pair;
  */
 public class TSIndexerFactory extends CustomIndexerFactory {
 
+    private final Set<String> openRoots = Collections.synchronizedSet(new HashSet<String>());
+
     @Override
     public boolean scanStarted(Context context) {
         if (! context.checkForEditorModifications()) {
             TSService.preIndex(context.getRootURI());
         }
-        return false;
+        // When a root is first opened, return false to indicate we want all files regardless of
+        // timestamps. This does not affect other indexers.
+        // However, we must not return false for any subsequent indexing job triggered by live
+        // file changes - in NetBeans 9.0RC1, this is no longer ignored, but turns that single-file
+        // job into another full scan (with ALL indexers affected).
+        return ! openRoots.add(context.getRootURI().toString());
     }
 
     @Override
@@ -124,6 +134,7 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     public void rootsRemoved(Iterable<? extends URL> removedRoots) {
         for (URL url: removedRoots) {
             TSService.removeProgram(url);
+            openRoots.remove(url.toString());
         }
     }
 
