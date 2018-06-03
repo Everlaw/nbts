@@ -607,6 +607,13 @@ class Program {
         return this.service.getEditsForRefactor(fileName, formatOptions, pos === end ? pos : { pos, end },
                 refactorName, actionName, void 0);
     }
+    organizeImports(fileName: string, formatOptions: ts.FormatCodeSettings) {
+        if (! this.fileInProject(fileName)) return null;
+        if (! this.service.organizeImports) {
+            return "organizeImports requires TypeScript 2.9\nCurrent version: " + ts.version;
+        }
+        return this.service.organizeImports({ type: "file", fileName }, formatOptions, void 0);
+    }
 }
 
 var programCache: {[path: string]: Program};

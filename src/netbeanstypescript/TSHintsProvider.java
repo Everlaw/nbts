@@ -43,6 +43,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import javax.swing.text.BadLocationException;
 import org.json.simple.JSONObject;
+import org.netbeans.editor.BaseDocument;
 import org.netbeans.modules.csl.api.*;
 import org.netbeans.modules.csl.api.Error;
 import org.openide.DialogDisplayer;
@@ -59,7 +60,7 @@ public class TSHintsProvider implements HintsProvider {
     @Override
     public void computeHints(HintsManager manager, RuleContext context, List<Hint> hints) {}
 
-    private void doFixes(final RuleContext context, FileObject fileObj, final List<JSONObject> changes) {
+    public static void doFixes(final BaseDocument doc, FileObject fileObj, final List<JSONObject> changes) {
         for (JSONObject change: changes) {
             Object fileName = change.get("fileName");
             if (! fileName.equals(fileObj.getPath())) {
@@ -69,12 +70,12 @@ public class TSHintsProvider implements HintsProvider {
                 return;
             }
         }
-        context.doc.runAtomic(new Runnable() {
+        doc.runAtomic(new Runnable() {
             @Override
             public void run() {
                 try {
                     for (JSONObject change: changes) {
-                        TSFormatter.applyEdits(context.doc, change.get("textChanges"));
+                        TSFormatter.applyEdits(doc, change.get("textChanges"));
                     }
                 } catch (BadLocationException ex) {
                     Exceptions.printStackTrace(ex);
@@ -115,7 +116,7 @@ public class TSHintsProvider implements HintsProvider {
                     }
                     @Override
                     public void implement() {
-                        doFixes(context, fileObj, (List<JSONObject>) fix.get("changes"));
+                        doFixes(context.doc, fileObj, (List<JSONObject>) fix.get("changes"));
                     }
                     @Override
                     public boolean isSafe() { return false; }
@@ -163,7 +164,7 @@ public class TSHintsProvider implements HintsProvider {
                                     new NotifyDescriptor.Message(error, NotifyDescriptor.ERROR_MESSAGE));
                             return;
                         }
-                        doFixes(context, fileObj, (List<JSONObject>) edits.get("edits"));
+                        doFixes(context.doc, fileObj, (List<JSONObject>) edits.get("edits"));
                     }
                     @Override
                     public boolean isSafe() { return false; }
