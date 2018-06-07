@@ -36,7 +36,7 @@ namespace ts {
                          node = (<ModuleDeclaration>node).body;
                     }
                 } else if (node.kind === SyntaxKind.VariableStatement) {
-                    forEach((<VariableStatement>node).declarationList.declarations, decl => {
+                    (<VariableStatement>node).declarationList.declarations.forEach(decl => {
                         decl.symbol.nbtsDeprecated = true;
                     });
                 }
@@ -152,7 +152,7 @@ class HostImpl implements ts.LanguageServiceHost {
             } else {
                 parsed = { config: { files: [this.path] } }
             }
-            var dir = ts.getDirectoryPath(this.path);
+            var dir = this.path.substring(0, this.path.lastIndexOf('/') + 1);
             this.cachedConfig = {
                 parseError: parsed.error,
                 pcl: ts.parseJsonConfigFileContent(parsed.config || {}, ts.sys, dir)
@@ -189,7 +189,7 @@ class Program {
     service = ts.createLanguageService(this.host, docRegistry);
     constructor(public host: HostImpl) {}
     fileInProject(fileName: string) {
-        return !!this.service.getProgram().getSourceFile(ts.normalizeSlashes(fileName));
+        return !!this.service.getProgram().getSourceFile(fileName);
     }
     getDiagnostics(fileName: string) {
         var config = this.host.configUpToDate();
@@ -292,7 +292,7 @@ class Program {
     }
     getSemanticHighlights(fileName: string) {
         var program = this.service.getProgram();
-        var sourceFile = program.getSourceFile(ts.normalizeSlashes(fileName));
+        var sourceFile = program.getSourceFile(fileName);
         if (! sourceFile) return null;
         var typeInfoResolver = program.getTypeChecker();
 
@@ -436,7 +436,7 @@ class Program {
     }
     getStructureItems(fileName: string) {
         var program = this.service.getProgram();
-        var sourceFile = program.getSourceFile(ts.normalizeSlashes(fileName));
+        var sourceFile = program.getSourceFile(fileName);
         if (! sourceFile) return null;
         var typeInfoResolver = program.getTypeChecker();
 
@@ -569,7 +569,7 @@ class Program {
         return refs && refs.map(ref => {
             var file = program.getSourceFile(ref.fileName);
             var lineStarts = file.getLineStarts();
-            var line = ts.computeLineAndCharacterOfPosition(lineStarts, ref.textSpan.start).line;
+            var { line } = ts.getLineAndCharacterOfPosition(file, ref.textSpan.start);
             return {
                 fileName: ref.fileName,
                 isWriteAccess: ref.isWriteAccess,
@@ -609,12 +609,13 @@ class Program {
         return this.service.getEmitOutput(fileName);
     }
     getCompilerOptions() {
-        return ts.optionDeclarations.map(function optToJson(opt) {
-            var res = <any>ts.clone(opt);
+        return ts.optionDeclarations.map(function optToJson(opt: any) {
+            var res = { ...opt };
             if (typeof opt.type === 'object') {
-                res.type = ts.arrayFrom(opt.type.keys());
+                res.type = [];
+                (<ts.ReadonlyMap<{}>>opt.type).forEach((_, k) => { res.type.push(k) });
             } else if (opt.type === 'list') {
-                res.element = optToJson((<ts.CommandLineOptionOfListType> opt).element);
+                res.element = optToJson(opt.element);
             }
             return res;
         });
@@ -666,18 +667,19 @@ function fileCall(method: keyof Program, fileName: string/*, ...*/) {
     var p = programCache[fileName];
     if (! p) {
         // Walk up the directory tree looking for tsconfig.json
-        p = (function getConfiguredProgram(dir: string) {
+        p = (function getConfiguredProgram(path: string) {
+            const idx = path.lastIndexOf('/'), dir = path.substring(0, idx);
+            if (idx < 0) return null;
             if (! (dir in programCache)) {
-                var config = ts.combinePaths(dir, "tsconfig.json");
+                var config = dir + "/tsconfig.json";
                 if (ts.sys.fileExists(config)) {
                     programCache[dir] = new Program(new HostImpl(config, true));
                 } else {
-                    var parentDir = ts.getDirectoryPath(dir);
-                    programCache[dir] = parentDir === dir ? null : getConfiguredProgram(parentDir);
+                    programCache[dir] = getConfiguredProgram(dir);
                 }
             }
             return programCache[dir];
-        })(ts.getDirectoryPath(fileName));
+        })(fileName);
         // If no tsconfig.json found, create a program with only this file
         programCache[fileName] = p || (p = new Program(new HostImpl(fileName, false)));
     }
