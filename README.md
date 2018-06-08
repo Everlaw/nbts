@@ -1,3 +1,5 @@
+**IMPORTANT: On NetBeans 9, use only version 2.9.1.1 or above.** Using any previous version of this plugin on NetBeans 9 will cause severe IDE-wide indexing slowdown.
+
 ## NetBeans TypeScript Editor
 
 This plugin allows editing of TypeScript code within NetBeans. Many IDE features are supported:
