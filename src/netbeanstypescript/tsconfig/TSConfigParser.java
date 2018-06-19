@@ -325,9 +325,11 @@ public class TSConfigParser extends Parser {
                     res.addError("'compilerOptions' value should be an object.", compilerOptions);
                     break OPTIONS;
                 }
-                JSONArray validArray = (JSONArray) TSService.call("getCompilerOptions", res.fileObj);
-                if (validArray == null) {
-                    res.addError("Error communicating with Node.js process", compilerOptions);
+                JSONArray validArray;
+                try {
+                    validArray = (JSONArray) TSService.callEx("getCompilerOptions", res.fileObj);
+                } catch (TSService.TSException e) {
+                    res.addError(e.getMessage(), compilerOptions);
                     break OPTIONS;
                 }
                 HashMap<String, TSConfigElementHandle> validMap = new HashMap<>();

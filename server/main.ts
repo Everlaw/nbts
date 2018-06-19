@@ -646,6 +646,10 @@ function clearProgramCache() {
     programCache = {};
 }
 
+function initLib(name: string, text: string) {
+    builtinLibs[name] = text;
+}
+
 function updateFile(fileName: string, newText: string) {
     version++;
     if (! (fileName in files) || /\.json$/.test(fileName)) {
@@ -663,7 +667,14 @@ function deleteFile(fileName: string) {
     delete files[fileName];
 }
 
-function fileCall(method: keyof Program, fileName: string/*, ...*/) {
+function query(method: keyof Program, fileName: string/*, ...*/) {
+    try {
+        const p = getProject(fileName);
+        return (<Function>p[method]).apply(p, [].slice.call(arguments, 1));
+    } catch (error) { return error.stack; }
+}
+
+function getProject(fileName: string) {
     var p = programCache[fileName];
     if (! p) {
         // Walk up the directory tree looking for tsconfig.json
@@ -683,14 +694,9 @@ function fileCall(method: keyof Program, fileName: string/*, ...*/) {
         // If no tsconfig.json found, create a program with only this file
         programCache[fileName] = p || (p = new Program(new HostImpl(fileName, false)));
     }
-    return (<Function>p[method]).apply(p, [].slice.call(arguments, 1));
+    return p;
 }
 
 require('readline').createInterface(process.stdin, process.stdout).on('line', (l: string) => {
-    try {
-        var r = JSON.stringify(eval(l));
-    } catch (error) {
-        r = 'X' + JSON.stringify(error.stack);
-    }
-    process.stdout.write(r + '\n');
+    process.stdout.write((JSON.stringify(eval(l)) || 'null') + '\n');
 });

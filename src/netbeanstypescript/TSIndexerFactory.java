@@ -163,6 +163,8 @@ public class TSIndexerFactory extends CustomIndexerFactory {
                 CompileAction.writeEmitOutput(fileObject,
                         TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
             }
+        } catch (TSService.TSException e) {
+            e.notifyLater();
         } finally {
             progress.finish();
         }

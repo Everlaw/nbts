@@ -37,15 +37,22 @@
  */
 package netbeanstypescript;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import javax.swing.event.ChangeListener;
+import org.json.simple.JSONObject;
 import org.netbeans.modules.csl.api.Error;
+import org.netbeans.modules.csl.api.Severity;
+import org.netbeans.modules.csl.spi.DefaultError;
 import org.netbeans.modules.csl.spi.ParserResult;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Task;
 import org.netbeans.modules.parsing.spi.ParseException;
 import org.netbeans.modules.parsing.spi.Parser;
 import org.netbeans.modules.parsing.spi.SourceModificationEvent;
+import org.openide.filesystems.FileObject;
 
 /**
  *
@@ -61,7 +68,7 @@ public class TSParser extends Parser {
         result = new ParserResult(snapshot) {
             @Override
             public List<? extends Error> getDiagnostics() {
-                return TSService.getDiagnostics(getSnapshot());
+                return diagnostics(getSnapshot().getSource().getFileObject());
             }
 
             @Override
@@ -72,6 +79,34 @@ public class TSParser extends Parser {
     @Override
     public Result getResult(Task task) throws ParseException {
         return result;
+    }
+
+    private List<DefaultError> diagnostics(FileObject fo) {
+        List<String> metaErrors;
+        List<JSONObject> normalErrors = Collections.emptyList();
+        try {
+            JSONObject diags = (JSONObject) TSService.callEx("getDiagnostics", fo);
+            metaErrors = (List<String>) diags.get("metaErrors");
+            normalErrors = (List<JSONObject>) diags.get("errs");
+        } catch (TSService.TSException e) {
+            metaErrors = Arrays.asList(e.getMessage());
+        }
+
+        List<DefaultError> errors = new ArrayList<>();
+        for (String metaError: metaErrors) {
+            errors.add(new DefaultError(null, metaError, null, fo, 0, 1, true, Severity.ERROR));
+        }
+        for (JSONObject err: normalErrors) {
+            int start = ((Number) err.get("start")).intValue();
+            int length = ((Number) err.get("length")).intValue();
+            String messageText = (String) err.get("messageText");
+            int category = ((Number) err.get("category")).intValue();
+            int code = ((Number) err.get("code")).intValue();
+            errors.add(new DefaultError(Integer.toString(code), messageText, null,
+                    fo, start, start + length, false,
+                    category == 0 ? Severity.WARNING : Severity.ERROR));
+        }
+        return errors;
     }
 
     @Override

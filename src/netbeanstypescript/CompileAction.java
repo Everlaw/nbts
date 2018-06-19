@@ -56,8 +56,6 @@ import org.netbeans.modules.parsing.api.ResultIterator;
 import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.parsing.api.UserTask;
 import org.netbeans.modules.parsing.spi.ParseException;
-import org.openide.DialogDisplayer;
-import org.openide.NotifyDescriptor;
 import org.openide.awt.StatusDisplayer;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -91,21 +89,25 @@ public class CompileAction extends AbstractAction {
                     }
                     ParserManager.parse(sources, this);
                 } catch (ParseException e) {
-                    Exceptions.printStackTrace(e);
+                    if (e.getCause() instanceof TSService.TSException) {
+                        ((TSService.TSException) e.getCause()).notifyLater();
+                    } else {
+                        Exceptions.printStackTrace(e);
+                    }
                 } finally {
                     progress.finish();
                 }
             }
             @Override
-            public void run(ResultIterator ri) throws ParseException {
+            public void run(ResultIterator ri) throws Exception {
                 FileObject fileObj = ri.getParserResult().getSnapshot().getSource().getFileObject();
-                writeEmitOutput(fileObj, TSService.call("getEmitOutput", fileObj));
+                writeEmitOutput(fileObj, TSService.callEx("getEmitOutput", fileObj));
             }
         }
         RequestProcessor.getDefault().post(new CompileTask());
     }
 
-    public static void writeEmitOutput(FileObject src, Object res) {
+    public static void writeEmitOutput(FileObject src, Object res) throws TSService.TSException {
         if (res == null) {
             return;
         }
@@ -121,10 +123,7 @@ public class CompileAction extends AbstractAction {
                 if (writeBOM) w.write('\uFEFF');
                 w.write(text);
             } catch (IOException e) {
-                String error = "Could not write file " + name + "\n" + e;
-                DialogDisplayer.getDefault().notify(
-                        new NotifyDescriptor.Message(error, NotifyDescriptor.ERROR_MESSAGE));
-                return;
+                throw new TSService.TSException("Could not write file " + name + "\n" + e);
             }
         }
         StatusDisplayer.getDefault().setStatusText(src.getNameExt() + " compiled.");

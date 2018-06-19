@@ -37,42 +37,31 @@
  */
 package netbeanstypescript;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
-import org.json.simple.parser.ParseException;
 import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.api.progress.ProgressHandleFactory;
-import org.netbeans.modules.csl.api.Severity;
-import org.netbeans.modules.csl.spi.DefaultError;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.ErrorsCache;
 import org.netbeans.modules.parsing.spi.indexing.ErrorsCache.Convertor;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
+import org.openide.DialogDisplayer;
+import org.openide.NotifyDescriptor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
-import org.openide.modules.InstalledFileLocator;
 import org.openide.util.Pair;
 import org.openide.util.RequestProcessor;
 
@@ -85,27 +74,13 @@ public class TSService {
     static final Logger log = Logger.getLogger(TSService.class.getName());
     static final RequestProcessor RP = new RequestProcessor("TSService", 1, true);
 
-    private static class ExceptionFromJS extends Exception {
-        ExceptionFromJS(String msg) { super(msg); }
-    }
+    public static class TSException extends Exception {
+        public TSException(String msg) { super(msg); }
 
-    static void stringToJS(StringBuilder sb, CharSequence s) {
-        sb.append('"');
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c < 0x20) {
-                sb.append("\\u");
-                for (int j = 12; j >= 0; j -= 4) {
-                    sb.append("0123456789ABCDEF".charAt((c >> j) & 0x0F));
-                }
-            } else {
-                if (c == '\\' || c == '"') {
-                    sb.append('\\');
-                }
-                sb.append(c);
-            }
+        public void notifyLater() {
+            DialogDisplayer.getDefault().notifyLater(
+                    new NotifyDescriptor.Message(getMessage(), NotifyDescriptor.ERROR_MESSAGE));
         }
-        sb.append('"');
     }
 
     static final String builtinLibPrefix = "(builtin)/";
@@ -121,136 +96,47 @@ public class TSService {
     // has a fair ordering policy so error checking won't starve other user actions.
     private static final Lock lock = new ReentrantLock(true);
 
-    private static NodeJSProcess nodejs = null;
+    private static TSServiceProcess currentProcess = null;
     private static final Map<URL, ProgramData> programs = new HashMap<>();
     private static final Map<String, FileData> allFiles = new HashMap<>();
 
-    private static class NodeJSProcess {
-        OutputStream stdin;
-        BufferedReader stdout;
-        String error;
-        Set<Integer> supportedCodeFixes = new HashSet<>();
-
-        NodeJSProcess() throws Exception {
-            log.info("Starting nodejs");
-            File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
-            // Node installs to /usr/local/bin on OS X, but OS X doesn't put /usr/local/bin in the
-            // PATH of applications started from the GUI
-            for (String command: new String[] { "nodejs", "node", "/usr/local/bin/node" }) {
-                try {
-                    Process process = new ProcessBuilder()
-                        .command(command, "--harmony", file.toString())
-                        .start();
-                    stdin = process.getOutputStream();
-                    stdout = new BufferedReader(new InputStreamReader(process.getInputStream(),
-                            StandardCharsets.UTF_8));
-                    process.getErrorStream().close();
-                    error = null;
-                    break;
-                } catch (Exception e) {
-                    error = "Error creating Node.js process. Make sure the \"nodejs\" or \"node\" executable is installed and on your PATH."
-                            + "\n\nClose all TypeScript projects and reopen to retry."
-                            + "\n\n" + e;
-                }
-            }
-
-            Object codeFixes = eval("ts.getSupportedCodeFixes()\n");
-            if (codeFixes != null) {
-                for (String code: (List<String>) codeFixes) {
-                    supportedCodeFixes.add(Integer.valueOf(code));
-                }
-            }
-
-            StringBuilder initLibs = new StringBuilder();
-            for (Map.Entry<String, FileObject> lib: builtinLibs.entrySet()) {
-                initLibs.append("void(builtinLibs[");
-                stringToJS(initLibs, lib.getKey());
-                initLibs.append("]=");
-                stringToJS(initLibs, Source.create(lib.getValue()).createSnapshot().getText());
-                initLibs.append(");");
-            }
-            eval(initLibs.append('\n').toString());
+    static TSServiceProcess createNodeProcess() {
+        TSServiceProcess nodejs = new TSServiceProcess();
+        for (Map.Entry<String, FileObject> lib: builtinLibs.entrySet()) {
+            nodejs.call("initLib", lib.getKey(),
+                    Source.create(lib.getValue()).createSnapshot().getText());
         }
-
-        final Object eval(String code) throws ParseException, ExceptionFromJS {
-            if (error != null) {
-                return null;
-            }
-            log.log(Level.FINER, "OUT[{0}]: {1}", new Object[] {
-                code.length(), code.length() > 120 ? code.substring(0, 120) + "...\n" : code});
-            long t1 = System.currentTimeMillis();
-            String s;
-            try {
-                stdin.write(code.getBytes(StandardCharsets.UTF_8));
-                stdin.flush();
-                while ((s = stdout.readLine()) != null && s.charAt(0) == 'L') {
-                    log.fine((String) JSONValue.parseWithException(s.substring(1)));
-                }
-            } catch (Exception e) {
-                error = "Error communicating with Node.js process."
-                        + "\n\nClose all TypeScript projects and reopen to retry."
-                        + "\n\n" + e;
-                return null;
-            }
-            log.log(Level.FINER, "IN[{0},{1}]: {2}\n", new Object[] {
-                s.length(), System.currentTimeMillis() - t1,
-                s.length() > 120 ? s.substring(0, 120) + "..." : s});
-            if (s.charAt(0) == 'X') {
-                throw new ExceptionFromJS((String) JSONValue.parseWithException(s.substring(1)));
-            } else if (s.equals("undefined")) {
-                return null; // JSON parser doesn't like undefined
-            } else {
-                return JSONValue.parseWithException(s);
-            }
-        }
-
-        void close() throws IOException {
-            if (stdin != null) stdin.close();
-            if (stdout != null) stdout.close();
-        }
+        return nodejs;
     }
 
     private static class ProgramData {
+        final TSServiceProcess process;
         final FileObject root;
         final Map<String, FileData> byRelativePath = new HashMap<>();
         final List<FileObject> needCompileOnSave = new ArrayList<>();
         boolean needErrorsUpdate;
         Object currentErrorsUpdate;
 
-        ProgramData(FileObject root) throws Exception {
+        ProgramData(FileObject root) {
+            if (currentProcess == null || ! currentProcess.isValid()) {
+                if (currentProcess != null) currentProcess.close();
+                currentProcess = createNodeProcess();
+            }
+            this.process = currentProcess;
             this.root = root;
         }
 
-        Object call(String method, Object... args) {
-            StringBuilder sb = new StringBuilder(method).append('(');
-            for (Object arg: args) {
-                if (sb.charAt(sb.length() - 1) != '(') sb.append(',');
-                if (arg instanceof CharSequence) {
-                    stringToJS(sb, (CharSequence) arg);
-                } else {
-                    sb.append(String.valueOf(arg));
-                }
-            }
-            sb.append(")\n");
-            try {
-                return nodejs.eval(sb.toString());
-            } catch (Exception e) {
-                log.log(Level.INFO, "Exception in nodejs.eval", e);
-                return null;
-            }
-        }
-
         final void addFile(FileData fd, Snapshot s, boolean modified) {
-            call("updateFile", fd.path, s.getText(), modified);
+            process.call("updateFile", fd.path, s.getText(), modified);
             byRelativePath.put(fd.indexable.getRelativePath(), fd);
             needErrorsUpdate = true;
         }
 
-        String removeFile(Indexable indexable) throws Exception {
+        String removeFile(Indexable indexable) {
             FileData fd = byRelativePath.remove(indexable.getRelativePath());
             if (fd != null) {
                 needErrorsUpdate = true;
-                call("deleteFile", fd.path);
+                process.call("deleteFile", fd.path);
                 return fd.path;
             }
             return null;
@@ -258,7 +144,7 @@ public class TSService {
 
         void removeAll() {
             for (FileData fd: byRelativePath.values()) {
-                call("deleteFile", fd.path);
+                process.call("deleteFile", fd.path);
             }
             byRelativePath.clear();
         }
@@ -278,9 +164,6 @@ public class TSService {
 
             ProgramData program = programs.get(rootURL);
             if (program == null) {
-                if (nodejs == null) {
-                    nodejs = new NodeJSProcess();
-                }
                 program = new ProgramData(cntxt.getRoot());
             }
             programs.put(rootURL, program);
@@ -298,8 +181,6 @@ public class TSService {
                     program.needCompileOnSave.add(fi.fileObject);
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         } finally {
             lock.unlock();
         }
@@ -397,11 +278,10 @@ public class TSService {
                             if (fi == null) {
                                 continue;
                             }
-                            JSONObject errors = (JSONObject) program.call("fileCall", "getDiagnostics", fi.path);
-                            if (errors != null) {
-                                ErrorsCache.setErrors(rootURI, fi.indexable,
-                                        (List<JSONObject>) errors.get("errs"), errorConvertor);
-                            }
+                            JSONObject errors = (JSONObject) program.process.query("getDiagnostics", fi.path);
+                            ErrorsCache.setErrors(rootURI, fi.indexable, (List<JSONObject>) errors.get("errs"), errorConvertor);
+                        } catch (TSException e) {
+                            // leave ErrorsCache unchanged
                         } finally {
                             lock.unlock();
                         }
@@ -438,10 +318,8 @@ public class TSService {
 
             if (programs.isEmpty()) {
                 log.info("No programs left; shutting down nodejs");
-                try {
-                    nodejs.close();
-                } catch (IOException e) {}
-                nodejs = null;
+                currentProcess.close();
+                currentProcess = null;
             }
         } finally {
             lock.unlock();
@@ -457,74 +335,38 @@ public class TSService {
         try {
             FileData fd = allFiles.get(fo.getPath());
             if (fd != null) {
-                fd.program.call("updateFile", fd.path, snapshot.getText(), true);
+                fd.program.process.call("updateFile", fd.path, snapshot.getText(), true);
             }
         } finally {
             lock.unlock();
         }
     }
 
-    static List<DefaultError> getDiagnostics(Snapshot snapshot) {
-        FileObject fo = snapshot.getSource().getFileObject();
-        if (fo == null) {
-            return Arrays.asList(new DefaultError(null, "FileObject is null",
-                    null, fo, 0, 1, true, Severity.ERROR));
+    public static Object callEx(String method, FileObject fileObj, Object... args)
+            throws TSException {
+        if (fileObj == null) {
+            throw new TSException("FileObject is null");
         }
         lock.lock();
         try {
-            FileData fd = allFiles.get(fo.getPath());
+            FileData fd = allFiles.get(fileObj.getPath());
             if (fd == null) {
-                return Arrays.asList(new DefaultError(null,
-                    "Unknown source root for file " + fo.getPath(),
-                    null, fo, 0, 1, true, Severity.ERROR));
+                throw new TSException("Unknown source root for file " + fileObj.getPath());
             }
-
-            JSONObject diags = (JSONObject) fd.program.call("fileCall", "getDiagnostics", fd.path);
-            if (diags == null) {
-                return Arrays.asList(new DefaultError(null,
-                    nodejs.error != null ? nodejs.error : "Error in getDiagnostics",
-                    null, fo, 0, 1, true, Severity.ERROR));
-            }
-
-            List<DefaultError> errors = new ArrayList<>();
-            for (String metaError: (List<String>) diags.get("metaErrors")) {
-                errors.add(new DefaultError(null, metaError, null, fo, 0, 1, true, Severity.ERROR));
-            }
-            for (JSONObject err: (List<JSONObject>) diags.get("errs")) {
-                int start = ((Number) err.get("start")).intValue();
-                int length = ((Number) err.get("length")).intValue();
-                String messageText = (String) err.get("messageText");
-                int category = ((Number) err.get("category")).intValue();
-                int code = ((Number) err.get("code")).intValue();
-                boolean fix = nodejs.supportedCodeFixes.contains(code);
-                errors.add(new DefaultError(fix ? Integer.toString(code) : null, messageText, null,
-                        fo, start, start + length, false,
-                        category == 0 ? Severity.WARNING : Severity.ERROR));
-            }
-            return errors;
+            Object[] filenameAndArgs = new Object[args.length + 2];
+            filenameAndArgs[0] = method;
+            filenameAndArgs[1] = fd.path;
+            System.arraycopy(args, 0, filenameAndArgs, 2, args.length);
+            return fd.program.process.query(filenameAndArgs);
         } finally {
             lock.unlock();
         }
     }
 
     public static Object call(String method, FileObject fileObj, Object... args) {
-        if (fileObj == null) {
-            return null;
-        }
-        lock.lock();
         try {
-            FileData fd = allFiles.get(fileObj.getPath());
-            if (fd == null) {
-                return null;
-            }
-            Object[] filenameAndArgs = new Object[args.length + 2];
-            filenameAndArgs[0] = method;
-            filenameAndArgs[1] = fd.path;
-            System.arraycopy(args, 0, filenameAndArgs, 2, args.length);
-            return fd.program.call("fileCall", filenameAndArgs);
-        } finally {
-            lock.unlock();
-        }
+            return callEx(method, fileObj, args);
+        } catch (TSException e) { return null; }
     }
 
     static FileObject findIndexedFileObject(String path) {
