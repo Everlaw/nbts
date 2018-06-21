@@ -599,8 +599,8 @@ class Program {
             };
         });
     }
-    getCompileOnSaveEmitOutput(fileName: string, guiSetting: boolean) {
-        var { compileOnSave = guiSetting } = this.host.configUpToDate().pcl.raw;
+    getCompileOnSaveEmitOutput(fileName: string) {
+        const { compileOnSave } = this.host.configUpToDate().pcl.raw;
         if (! compileOnSave || ! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }

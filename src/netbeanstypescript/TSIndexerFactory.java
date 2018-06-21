@@ -44,12 +44,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
-import java.util.prefs.Preferences;
 import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.api.progress.ProgressHandleFactory;
-import org.netbeans.api.project.FileOwnerQuery;
-import org.netbeans.api.project.Project;
-import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.parsing.spi.indexing.Context;
@@ -149,19 +145,13 @@ public class TSIndexerFactory extends CustomIndexerFactory {
     }
 
     static void compileIfEnabled(FileObject root, FileObject[] fileObjects) {
-        boolean guiSetting = false;
-        Project project = FileOwnerQuery.getOwner(root);
-        if (project != null) {
-            Preferences prefs = ProjectUtils.getPreferences(project, TSProjectCustomizer.class, true);
-            guiSetting = "true".equals(prefs.get("compileOnSave", null));
-        }
         ProgressHandle progress = ProgressHandleFactory.createHandle("TypeScript compile on save");
         progress.start();
         try {
             for (FileObject fileObject: fileObjects) {
                 TSService.log.log(Level.FINE, "Compiling {0}", fileObject.getPath());
                 CompileAction.writeEmitOutput(fileObject,
-                        TSService.call("getCompileOnSaveEmitOutput", fileObject, guiSetting));
+                        TSService.call("getCompileOnSaveEmitOutput", fileObject));
             }
         } catch (TSService.TSException e) {
             e.notifyLater();
