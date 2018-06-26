@@ -15,10 +15,6 @@
  */
 
 /// <reference path="loadServices.ts"/>
-declare var __dirname: string; loadServices(__dirname);
-
-import SK = ts.SyntaxKind;
-import SEK = ts.ScriptElementKind;
 
 // Node.js stuff
 declare var global: any;
@@ -28,8 +24,8 @@ declare class Set<T> { add(t: T): void; has(t: T): boolean; }
 
 var version = 0;
 var files: {[name: string]: {version: string; snapshot: SnapshotImpl}} = {};
-var builtinLibs: {[name: string]: string} = {};
-var docRegistry = ts.createDocumentRegistry(ts.sys.useCaseSensitiveFileNames);
+var builtinLibs: {[name: string]: string};
+var docRegistry: ts.DocumentRegistry;
 
 var implicitAnyErrors: {[code: number]: boolean} = {};
 [[2602, 2602], [7000, 7026], [7031, 7034]].forEach(([lo, hi]) => {
@@ -42,6 +38,7 @@ class HostImpl implements ts.LanguageServiceHost {
     cachedConfig: {
         parseError: ts.Diagnostic;
         pcl: ts.ParsedCommandLine;
+        raw: any;
     } = null;
     constructor(public path: string, public isConfig: boolean) {}
     log(s: string) {
@@ -108,17 +105,14 @@ class HostImpl implements ts.LanguageServiceHost {
     }
     configUpToDate() {
         if (! this.cachedConfig) {
-            var parsed: { config?: any; error?: ts.Diagnostic } = {};
-            if (this.isConfig) {
-                parsed = ts.readConfigFile(this.path, this.readFile);
-            } else {
-                parsed = { config: { files: [this.path] } }
-            }
-            var dir = this.path.substring(0, this.path.lastIndexOf('/') + 1);
-            this.cachedConfig = {
-                parseError: parsed.error,
-                pcl: ts.parseJsonConfigFileContent(parsed.config || {}, ts.sys, dir)
-            }
+            const { config, error } = this.isConfig
+                    ? ts.readConfigFile(this.path, ts.sys.readFile)
+                    : { config: { files: [this.path] }, error: void 0 };
+            const parse = ts.parseJsonConfigFileContent // renamed in TS 1.7
+                    || <never>(<any>ts).parseConfigFile;
+            const dir = this.path.substring(0, this.path.lastIndexOf('/') + 1);
+            const pcl = parse(config || {}, ts.sys, dir);
+            this.cachedConfig = { parseError: error, pcl: pcl, raw: pcl.raw || config || {} };
         }
         return this.cachedConfig;
     }
@@ -148,7 +142,10 @@ class SnapshotImpl implements ts.IScriptSnapshot {
 }
 
 class Program {
-    service = ts.createLanguageService(this.host, docRegistry);
+    service = ts.createLanguageService(this.host,
+        docRegistry || (docRegistry = ts.createDocumentRegistry(ts.sys.useCaseSensitiveFileNames)));
+    modFlags = ts.ModifierFlags || <never>ts.NodeFlags; // split off in TS 2.1
+    hasModifier = ts.hasModifier || ((n, flag) => !!(n.flags & flag));
     constructor(public host: HostImpl) {}
     fileInProject(fileName: string) {
         return !!this.service.getProgram().getSourceFile(fileName);
@@ -200,6 +197,7 @@ class Program {
     }
     getCompletionEntryLocation(fileName: string, position: number, entryName: string) {
         if (! this.fileInProject(fileName)) return null;
+        if (! this.service.getCompletionEntrySymbol) return null; // Method added in TS 2.1
         var sym = this.service.getCompletionEntrySymbol(fileName, position, entryName, void 0);
         if (sym) {
             var decl = sym.declarations[0];
@@ -253,6 +251,7 @@ class Program {
         }));
     }
     getSemanticHighlights(fileName: string) {
+        const SK = ts.SyntaxKind;
         var program = this.service.getProgram();
         var sourceFile = program.getSourceFile(fileName);
         if (! sourceFile) return null;
@@ -290,6 +289,7 @@ class Program {
             return decl.kind === SK.SourceFile && ! ts.isExternalModule(<ts.SourceFile>decl);
         }
 
+        const { hasModifier, modFlags } = this;
         function walk(node: any) {
             if (node.symbol && node.name && node.name.text) {
                 var isLocal: boolean;
@@ -302,7 +302,7 @@ class Program {
                 } else if (node.symbol.flags & 0x1A00C) {
                     // property, enum member, method, get/set - public by default
                     // is only local if "private" modifier is present
-                    isLocal = ts.hasModifier(node, ts.ModifierFlags.Private);
+                    isLocal = hasModifier(node, modFlags.Private);
                 } else {
                     // other symbols are local unless in global scope or exported
                     isLocal = ! (isGlobal(node) || node.localSymbol);
@@ -397,11 +397,14 @@ class Program {
         return results;
     }
     getStructureItems(fileName: string) {
+        const SK = ts.SyntaxKind;
+        const SEK = ts.ScriptElementKind;
         var program = this.service.getProgram();
         var sourceFile = program.getSourceFile(fileName);
         if (! sourceFile) return null;
         var typeInfoResolver = program.getTypeChecker();
 
+        const { hasModifier, modFlags } = this;
         function buildResults(topNode: ts.Node, inFunction: boolean, baseTypes?: [ts.Type, boolean][]) {
             var results: any[] = [];
             function add(node: ts.NamedDeclaration, kind: string, symbol?: ts.Symbol) {
@@ -415,7 +418,7 @@ class Program {
                 if (symbol) {
                     var type = typeInfoResolver.getTypeOfSymbolAtLocation(symbol, node);
                     res.type = typeInfoResolver.typeToString(type);
-                    if (baseTypes && symbol.name && ! ts.hasModifier(node, ts.ModifierFlags.Static)) {
+                    if (baseTypes && symbol.name && ! hasModifier(node, modFlags.Static)) {
                         var overrides: any[] = [];
                         baseTypes.forEach(([baseType, isImplements]) => {
                             var baseSym = typeInfoResolver.getPropertyOfType(baseType, symbol.name);
@@ -426,7 +429,7 @@ class Program {
                                 fileName: baseSource.fileName,
                                 start: ts.skipTrivia(baseSource.text, baseDecl.pos),
                                 name: typeInfoResolver.symbolToString(baseSym.parent),
-                                wasAbstract: isImplements || ts.hasModifier(baseDecl, ts.ModifierFlags.Abstract)
+                                wasAbstract: isImplements || hasModifier(baseDecl, modFlags.Abstract)
                             });
                         });
                         if (overrides.length) {
@@ -474,7 +477,7 @@ class Program {
                         var res = addFunc(<ts.ConstructorDeclaration>node, SEK.constructorImplementationElement);
                         res.name = "constructor";
                         (<ts.ConstructorDeclaration>node).parameters.forEach(function(p) {
-                            if (ts.hasModifier(p, ts.ModifierFlags.ParameterPropertyModifier))
+                            if (hasModifier(p, modFlags.ParameterPropertyModifier))
                                 add(p, SEK.memberVariableElement, p.symbol);
                         });
                         break;
@@ -562,7 +565,7 @@ class Program {
         });
     }
     getCompileOnSaveEmitOutput(fileName: string) {
-        const { compileOnSave } = this.host.configUpToDate().pcl.raw;
+        const { compileOnSave } = this.host.configUpToDate().raw;
         if (! compileOnSave || ! this.fileInProject(fileName)) return null;
         return this.service.getEmitOutput(fileName);
     }
@@ -574,21 +577,28 @@ class Program {
         return ts.optionDeclarations.map(function optToJson(opt: any) {
             var res = { ...opt };
             if (typeof opt.type === 'object') {
-                res.type = [];
-                (<ts.ReadonlyMap<{}>>opt.type).forEach((_, k) => { res.type.push(k) });
+                if (opt.type.forEach) { // TS 2.2+: changed from plain object to Map
+                    res.type = [];
+                    (<ts.ReadonlyMap<{}>>opt.type).forEach((_, k) => { res.type.push(k) });
+                } else {
+                    res.type = Object.keys(opt.type);
+                }
             } else if (opt.type === 'list') {
                 res.element = optToJson(opt.element);
             }
+            res.description = opt.description && (opt.description.message || opt.description.key);
             return res;
         });
     }
     getCodeFixesAtPosition(fileName: string, start: number, end: number, errorCodes: number[],
             formatOptions: ts.FormatCodeSettings) {
         if (! this.fileInProject(fileName)) return null;
+        if (! this.service.getCodeFixesAtPosition) return []; // Method added in TS 2.1
         return this.service.getCodeFixesAtPosition(fileName, start, end, errorCodes, formatOptions, void 0);
     }
     getApplicableRefactors(fileName: string, pos: number, end: number) {
         if (! this.fileInProject(fileName)) return null;
+        if (! this.service.getApplicableRefactors) return []; // Method added in TS 2.4
         return this.service.getApplicableRefactors(fileName, pos === end ? pos : { pos, end }, void 0);
     }
     getEditsForRefactor(fileName: string, formatOptions: ts.FormatCodeSettings, pos: number, end: number,
@@ -599,17 +609,27 @@ class Program {
     }
 }
 
-var programCache: {[path: string]: Program} = {};
+var programCache: {[path: string]: Program};
 
 function clearProgramCache() {
-    for (var path in programCache) {
-        programCache[path] && programCache[path].service.dispose();
-    }
+    docRegistry = void 0;
     programCache = {};
 }
 
-function initLib(name: string, text: string) {
-    builtinLibs[name] = text;
+function configure(tsLibDir: string, locale: string) {
+    global.ts = builtinLibs = docRegistry = void 0;
+    programCache = {};
+    try {
+        loadServices(tsLibDir);
+        // Localized error messages added in TS 2.1
+        locale && ts.validateLocaleAndSetLanguage(locale, ts.sys);
+        builtinLibs = {};
+        (<string[]>require('fs').readdirSync(tsLibDir)).forEach(libFile => {
+            if (/^lib.*\.d\.ts$/.test(libFile)) {
+                builtinLibs["(builtin)/" + libFile] = ts.sys.readFile(tsLibDir + "/" + libFile);
+            }
+        });
+    } catch (error) { return error.stack; }
 }
 
 function updateFile(fileName: string, newText: string) {

@@ -6,19 +6,8 @@
     <!-- If this line fails, open the project in NetBeans to create nbproject/private files. -->
     <import file="nbproject/build-impl.xml"/>
 
-    <!-- Paths to the TypeScript installation to copy files from, and the Node.js executable to
-         use while building. Adjust these according to your own environment. -->
+    <!-- Path to the TypeScript installation to use. -->
     <property name="typescript" value="${env.HOME}/TypeScript-2.9.1"/>
-    <property name="node.executable" value="node"/>
-
-    <target name="compile" depends="projectized-common.compile">
-        <copy todir="${cluster}">
-            <fileset dir="${typescript}/lib" includes="typescript.js"/>
-        </copy>
-        <copy todir="${build.classes.dir}/netbeanstypescript/lib">
-            <fileset dir="${typescript}/lib" includes="lib*.d.ts"/>
-        </copy>
-    </target>
 
     <target name="compile-ts-services-check" depends="basic-init">
         <uptodate property="compile-ts-services.uptodate" targetfile="${cluster}/nbts-services.js">
@@ -35,5 +24,7 @@
             <arg value="${cluster}/nbts-services.js"/>
             <arg value="--noEmitOnError"/>
         </exec>
+        <echo file="build/testuserdir/config/Preferences/netbeanstypescript.properties"
+              message="libDir=${typescript}/lib"/>
     </target>
 </project>

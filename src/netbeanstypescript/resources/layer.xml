@@ -40,6 +40,10 @@
                         <attr name="instanceClass" stringvalue="netbeanstypescript.CompileAction"/>
                         <attr name="position" intvalue="5050"/>
                     </file>
+                    <file name="ConfigurePlugin.instance">
+                        <attr name="instanceClass" stringvalue="netbeanstypescript.TSPluginConfig"/>
+                        <attr name="position" intvalue="9999"/>
+                    </file>
                 </folder>
 
                 <!-- colors -->

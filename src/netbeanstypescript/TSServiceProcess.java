@@ -58,6 +58,8 @@ public class TSServiceProcess {
     private String commError;
     private boolean threadStarted;
     private volatile String procError;
+    private int configGen;
+    private String configError;
 
     public TSServiceProcess() {
         File file = InstalledFileLocator.getDefault().locate("nbts-services.js", "netbeanstypescript", false);
@@ -153,6 +155,21 @@ public class TSServiceProcess {
     }
 
     public Object query(Object... filenameAndArgs) throws TSException {
+        if (configGen < TSPluginConfig.configGen) {
+            configGen = TSPluginConfig.configGen;
+            String libDir = TSPluginConfig.getLibDir();
+            if (libDir.isEmpty()) {
+                configError = "TypeScript lib directory not set";
+            } else {
+                Object res = call("configure", libDir, TSPluginConfig.getLocale());
+                configError = res instanceof String
+                        ? "Failed to load TypeScript from " + libDir + "\n\n" + res
+                        : null;
+            }
+        }
+        if (configError != null) {
+            throw new TSException(configError + "\n\nPlease check plugin configuration (context menu > \"TypeScript Setup...\")");
+        }
         Object res = call("query", filenameAndArgs);
         if (res == TSException.class) {
             throw new TSException((procError != null ? procError : commError)

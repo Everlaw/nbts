@@ -77,9 +77,8 @@ public class TSConfigCodeCompletion implements CodeCompletionHandler {
             name = (String) obj.get("name");
             commandLineOnly = commandLineOnlySet.contains(name);
             type = obj.get("type");
-            JSONObject description = (JSONObject) obj.get("description");
-            if (description != null) {
-                message = (String) description.get("message");
+            message = (String) obj.get("description");
+            if (message != null) {
                 if (message.startsWith("[Deprecated]")) {
                     int depMessageEnd = message.indexOf('.', 12);
                     deprecated = message.substring(12, depMessageEnd >= 0 ? depMessageEnd + 1 : message.length());

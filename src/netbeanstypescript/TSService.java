@@ -52,7 +52,6 @@ import org.json.simple.JSONObject;
 import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.modules.parsing.api.Snapshot;
-import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.ErrorsCache;
 import org.netbeans.modules.parsing.spi.indexing.ErrorsCache.Convertor;
@@ -61,7 +60,6 @@ import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.filesystems.URLMapper;
 import org.openide.util.Pair;
 import org.openide.util.RequestProcessor;
 
@@ -84,13 +82,6 @@ public class TSService {
     }
 
     static final String builtinLibPrefix = "(builtin)/";
-    static final Map<String, FileObject> builtinLibs = new HashMap<>();
-    static {
-        URL libDirURL = TSService.class.getClassLoader().getResource("netbeanstypescript/lib");
-        for (FileObject lib: URLMapper.findFileObject(libDirURL).getChildren()) {
-            builtinLibs.put(builtinLibPrefix + lib.getNameExt(), lib);
-        }
-    }
 
     // All access to the TSService state below should be done with this lock acquired. This lock
     // has a fair ordering policy so error checking won't starve other user actions.
@@ -99,15 +90,6 @@ public class TSService {
     private static TSServiceProcess currentProcess = null;
     private static final Map<URL, ProgramData> programs = new HashMap<>();
     private static final Map<String, FileData> allFiles = new HashMap<>();
-
-    static TSServiceProcess createNodeProcess() {
-        TSServiceProcess nodejs = new TSServiceProcess();
-        for (Map.Entry<String, FileObject> lib: builtinLibs.entrySet()) {
-            nodejs.call("initLib", lib.getKey(),
-                    Source.create(lib.getValue()).createSnapshot().getText());
-        }
-        return nodejs;
-    }
 
     private static class ProgramData {
         final TSServiceProcess process;
@@ -120,7 +102,7 @@ public class TSService {
         ProgramData(FileObject root) {
             if (currentProcess == null || ! currentProcess.isValid()) {
                 if (currentProcess != null) currentProcess.close();
-                currentProcess = createNodeProcess();
+                currentProcess = new TSServiceProcess();
             }
             this.process = currentProcess;
             this.root = root;
@@ -381,7 +363,7 @@ public class TSService {
 
     static FileObject findAnyFileObject(String path) {
         return path.startsWith(builtinLibPrefix)
-                ? builtinLibs.get(path)
+                ? FileUtil.toFileObject(new File(TSPluginConfig.getLibDir(), path.substring(builtinLibPrefix.length())))
                 : FileUtil.toFileObject(new File(path));
     }
 }
