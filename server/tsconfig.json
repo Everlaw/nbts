@@ -1,12 +1,3 @@
 {
-    "extends": "./ts/services/tsconfig",
-    "compilerOptions": {
-        "declaration": false,
-        "preserveConstEnums": false,
-        "removeComments": true,
-        "sourceMap": false,
-        "typeRoots": ["."],
-        "types": ["dummy-types"]
-    },
-    "include": ["main.ts"]
+    "files": ["main.ts"]
 }

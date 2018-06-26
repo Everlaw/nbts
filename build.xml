@@ -12,66 +12,21 @@
     <property name="node.executable" value="node"/>
 
     <target name="compile" depends="projectized-common.compile">
+        <copy todir="${cluster}">
+            <fileset dir="${typescript}/lib" includes="typescript.js"/>
+        </copy>
         <copy todir="${build.classes.dir}/netbeanstypescript/lib">
             <fileset dir="${typescript}/lib" includes="lib*.d.ts"/>
         </copy>
     </target>
 
-    <target name="copy-ts.check">
-        <loadfile srcFile="server/ts/installdir" property="typescript.stored" failonerror="false"/>
-        <condition property="copy-ts.uptodate">
-            <and>
-                <equals arg1="${typescript.stored}" arg2="${typescript}"/>
-                <uptodate property="copy-ts.uptodate" targetfile="server/ts/valid">
-                    <srcfiles dir="${typescript}/src"/>
-                    <srcfiles file="server/ts-patches"/>
-                </uptodate>
-            </and>
-        </condition>
-    </target>
-    <target name="copy-ts" depends="copy-ts.check" unless="copy-ts.uptodate">
-        <delete dir="server/ts"/>
-        <copy todir="server/ts">
-            <fileset dir="${typescript}/src">
-                <include name="compiler/**/*.ts"/>
-                <include name="compiler/diagnosticMessages.json"/>
-                <include name="services/**"/>
-                <include name="tsconfig-base.json"/>
-            </fileset>
-        </copy>
-        <echo file="server/ts/installdir">${typescript}</echo>
-        <!-- When upgrading to a new version of TypeScript, applying these patches may fail. The
-             patch command will create .rej files for those patches that could not be applied. Apply
-             them manually and then run ./server/save-ts-patches. -->
-        <patch patchfile="server/ts-patches" strip="0" dir="server/ts" failonerror="true"/>
-        <echo>Building processDiagnosticMessages.js</echo>
-        <exec executable="${typescript}/bin/tsc" failonerror="true">
-            <arg value="--project"/>
-            <arg value="${typescript}/scripts/processDiagnosticMessages.tsconfig.json"/>
-            <arg value="--outFile"/>
-            <arg value="build/processDiagnosticMessages.js"/>
-            <arg value="--typeRoots"/>
-            <arg value="server"/>
-            <arg value="--types"/>
-            <arg value="dummy-types"/>
-        </exec>
-        <echo>Processing diagnostic messages</echo>
-        <exec executable="${node.executable}" failonerror="true">
-            <arg value="build/processDiagnosticMessages.js"/>
-            <arg value="server/ts/compiler/diagnosticMessages.json"/>
-        </exec>
-        <touch file="server/ts/valid"/>
-    </target>
-    <target name="clean" depends="projectized-common.clean">
-        <delete dir="server/ts"/>
-    </target>
-
-    <target name="compile-ts-services-check" depends="basic-init,copy-ts">
+    <target name="compile-ts-services-check" depends="basic-init">
         <uptodate property="compile-ts-services.uptodate" targetfile="${cluster}/nbts-services.js">
             <srcfiles dir="server"/>
         </uptodate>
     </target>
     <target name="netbeans-extra" depends="compile-ts-services-check" unless="compile-ts-services.uptodate">
+        <copy file="${typescript}/lib/typescriptServices.d.ts" todir="build"/>
         <echo>Building nbts-services.js</echo>
         <exec executable="${typescript}/bin/tsc" failonerror="true">
             <arg value="--project"/>
