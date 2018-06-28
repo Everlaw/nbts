@@ -244,8 +244,8 @@ class Program {
     }
     getOccurrencesAtPosition(fileName: string, position: number) {
         if (! this.fileInProject(fileName)) return null;
-        var occurrences = this.service.getOccurrencesAtPosition(fileName, position);
-        return occurrences && occurrences.map(occ => ({
+        const hi = this.service.getDocumentHighlights(fileName, position, [fileName]);
+        return hi && hi[0] && hi[0].highlightSpans.map(occ => ({
             start: occ.textSpan.start,
             end: occ.textSpan.start + occ.textSpan.length
         }));
