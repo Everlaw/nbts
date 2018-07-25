@@ -39,19 +39,14 @@ class HostImpl implements ts.LanguageServiceHost {
         parseError: ts.Diagnostic;
         pcl: ts.ParsedCommandLine;
         raw: any;
+        settings: ts.CompilerOptions;
     } = null;
     constructor(public path: string, public isConfig: boolean) {}
     log(s: string) {
         process.stdout.write('L' + JSON.stringify(s) + '\n');
     }
     getCompilationSettings() {
-        var options = this.configUpToDate().pcl.options;
-        var settings: ts.CompilerOptions = Object.create(options);
-        if (options.noImplicitAny == null) {
-            // report implicit-any errors anyway, but only as warnings (see getDiagnostics)
-            settings.noImplicitAny = true;
-        }
-        return settings;
+        return this.configUpToDate().settings;
     }
     getNewLine() {
         return ts.getNewLineCharacter(this.configUpToDate().pcl.options);
@@ -112,7 +107,13 @@ class HostImpl implements ts.LanguageServiceHost {
                     || <never>(<any>ts).parseConfigFile;
             const dir = this.path.substring(0, this.path.lastIndexOf('/') + 1);
             const pcl = parse(config || {}, ts.sys, dir);
-            this.cachedConfig = { parseError: error, pcl: pcl, raw: pcl.raw || config || {} };
+            this.cachedConfig = {
+                parseError: error,
+                pcl: pcl,
+                raw: pcl.raw || config || {},
+                // if noImplicitAny unset, report errors anyway, but only as warnings (see getDiagnostics)
+                settings: { noImplicitAny: true, ...pcl.options }
+            };
         }
         return this.cachedConfig;
     }
