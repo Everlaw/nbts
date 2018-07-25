@@ -1,3 +1,6 @@
 {
+    "compilerOptions": {
+        "lib": ["es5"]
+    },
     "files": ["main.ts"]
 }
